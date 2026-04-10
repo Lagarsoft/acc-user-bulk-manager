@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ACC User Bulk Manager — UX Prototype</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            aps: { blue: '#0696D7', dark: '#0D2B3E', light: '#E6F4FB', hover: '#0580BC' }
+          },
+          fontFamily: { sans: ['Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .sortable:hover { cursor: pointer; background-color: #f9fafb; }
+    .step-btn { border-color: #d1d5db; color: #9ca3af; background: white; }
+    .step-btn.active { background: #0696D7; border-color: #0696D7; color: white; }
+    .step-btn.done { border-color: #0696D7; color: #0696D7; background: white; }
+    .step-label { color: #9ca3af; }
+    .step-label.active { color: #0696D7; font-weight: 600; }
+    .step-line { transition: background 0.3s; }
+    .step-line.done { background: #0696D7; }
+    #queue-tbody td { height: 44px; vertical-align: middle; padding-top: 0; padding-bottom: 0; }
+    .badge-add    { background: #dcfce7; color: #15803d; }
+    .badge-remove { background: #fee2e2; color: #b91c1c; }
+    .badge-update { background: #fef9c3; color: #a16207; }
+    .diff-add    { background: #f0fdf4; border-left: 4px solid #22c55e; }
+    .diff-remove { background: #fff1f2; border-left: 4px solid #ef4444; }
+    .diff-update { background: #fefce8; border-left: 4px solid #eab308; }
+    .progress-bar-inner { height: 100%; border-radius: 9999px; background: #0696D7; transition: width 0.4s ease; }
+    .drag-over { border-color: #0696D7 !important; background: #E6F4FB !important; }
+    input[type=checkbox] { accent-color: #0696D7; width: 16px; height: 16px; }
+    select:focus, input:focus { outline: 2px solid #0696D7; outline-offset: 1px; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
+
+<!-- ── HEADER ──────────────────────────────────────────────── -->
+<header class="bg-aps-dark text-white h-14 flex items-center px-6 gap-4 shadow-md sticky top-0 z-50">
+  <svg width="28" height="28" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+    <rect width="40" height="40" rx="6" fill="#0696D7"/>
+    <path d="M8 30 L20 10 L32 30" stroke="white" stroke-width="3.5" stroke-linejoin="round" fill="none"/>
+    <path d="M13 22 L27 22" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+  </svg>
+  <span class="font-semibold text-base tracking-tight">ACC User Bulk Manager</span>
+  <span class="hidden sm:inline ml-2 text-xs bg-blue-500/30 text-blue-200 px-2 py-0.5 rounded-full">UX Prototype</span>
+  <div class="ml-auto flex items-center gap-3">
+    <span class="hidden md:block text-sm text-gray-300">julio.sarachaga@company.com</span>
+    <div class="w-8 h-8 rounded-full bg-aps-blue flex items-center justify-center text-sm font-semibold">JS</div>
+  </div>
+</header>
+
+<!-- ── STEP CIRCLES ──────────────────────────────────────── -->
+<nav id="step-nav" class="hidden bg-white border-b border-gray-200 px-4 py-4 sm:py-5 sticky top-14 z-40" aria-label="Workflow steps">
+  <div class="flex items-center justify-center">
+    <div class="flex items-center">
+
+      <div class="flex flex-col items-center">
+        <button onclick="showScreen('screen-csv', 0)" class="step-btn w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 flex items-center justify-center text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-aps-blue focus:ring-offset-2" aria-label="Step 1: Upload CSV">1</button>
+        <span class="step-label text-xs mt-2 whitespace-nowrap hidden sm:block sm:text-sm">Upload CSV</span>
+      </div>
+
+      <div class="step-line w-8 sm:w-20 h-0.5 bg-gray-200 mb-0 sm:mb-5 mx-1"></div>
+
+      <div class="flex flex-col items-center">
+        <button onclick="showScreen('screen-queue', 1)" class="step-btn w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 flex items-center justify-center text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-aps-blue focus:ring-offset-2" aria-label="Step 2: Bulk Queue">2</button>
+        <span class="step-label text-xs mt-2 whitespace-nowrap hidden sm:block sm:text-sm">Bulk Queue</span>
+      </div>
+
+      <div class="step-line w-8 sm:w-20 h-0.5 bg-gray-200 mb-0 sm:mb-5 mx-1"></div>
+
+      <div class="flex flex-col items-center">
+        <button onclick="showScreen('screen-dryrun', 2)" class="step-btn w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 flex items-center justify-center text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-aps-blue focus:ring-offset-2" aria-label="Step 3: Preview Changes">3</button>
+        <span class="step-label text-xs mt-2 whitespace-nowrap hidden sm:block sm:text-sm">Preview Changes</span>
+      </div>
+
+      <div class="step-line w-8 sm:w-20 h-0.5 bg-gray-200 mb-0 sm:mb-5 mx-1"></div>
+
+      <div class="flex flex-col items-center">
+        <button onclick="showScreen('screen-execution', 3)" class="step-btn w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 flex items-center justify-center text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-aps-blue focus:ring-offset-2" aria-label="Step 4: Execution">4</button>
+        <span class="step-label text-xs mt-2 whitespace-nowrap hidden sm:block sm:text-sm">Execution</span>
+      </div>
+
+    </div>
+  </div>
+</nav>
+
+<main class="max-w-6xl mx-auto px-4 py-4 sm:py-8">
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 1 — LOGIN
+══════════════════════════════════════════════════════════ -->
+<section id="screen-login" class="screen active" aria-label="Sign in">
+  <div class="max-w-md mx-auto mt-12">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-10 text-center">
+      <svg class="mx-auto mb-6" width="52" height="52" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <rect width="40" height="40" rx="8" fill="#0696D7"/>
+        <path d="M8 30 L20 10 L32 30" stroke="white" stroke-width="3.5" stroke-linejoin="round" fill="none"/>
+        <path d="M13 22 L27 22" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+      </svg>
+      <h1 class="text-2xl font-semibold mb-1">Welcome back</h1>
+      <p class="text-gray-500 text-sm mb-8">Sign in with your Autodesk account to manage ACC project users in bulk.</p>
+      <button onclick="showScreen('screen-csv', 0)"
+              class="w-full bg-aps-blue hover:bg-aps-hover text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 focus:ring-2 focus:ring-aps-blue focus:ring-offset-2">
+        <i data-lucide="log-in" class="w-4 h-4"></i>
+        Sign in with Autodesk
+      </button>
+      <div class="mt-8 text-left bg-gray-50 rounded-lg p-4">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Permissions requested</p>
+        <ul class="space-y-1.5 text-xs text-gray-600">
+          <li class="flex items-center gap-2"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-green-500"></i> Read ACC hubs and projects</li>
+          <li class="flex items-center gap-2"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-green-500"></i> Read and write project user permissions</li>
+          <li class="flex items-center gap-2"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-green-500"></i> Read account admin user directory</li>
+        </ul>
+      </div>
+      <p class="text-xs text-gray-400 mt-6">Your credentials are never stored. Authentication is handled by Autodesk Platform Services (APS) OAuth 2.0.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 2 — CSV UPLOAD
+══════════════════════════════════════════════════════════ -->
+<section id="screen-csv" class="screen" aria-label="Upload CSV">
+  <div class="mb-4 sm:mb-6 flex items-center justify-between sticky top-[120px] sm:top-[152px] z-30 bg-white shadow-sm border-b border-gray-100 -mx-4 px-4 py-3 sm:py-4">
+    <div>
+      <h2 class="text-xl font-semibold">Upload CSV</h2>
+      <p class="text-gray-500 text-sm mt-1 hidden sm:block sm:text-sm">Import a CSV file containing the user operations to perform.</p>
+    </div>
+    <button onclick="showScreen('screen-queue', 1)"
+            class="bg-aps-blue hover:bg-aps-hover text-white text-sm font-medium py-2 px-5 rounded-lg flex items-center gap-2 transition-colors">
+      Continue <i data-lucide="arrow-right" class="w-4 h-4"></i>
+    </button>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+      <div id="drop-zone"
+           class="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer transition-colors hover:border-aps-blue hover:bg-aps-light"
+           ondragover="event.preventDefault(); this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)"
+           onclick="document.getElementById('csv-file').click()"
+           role="button" aria-label="Drop CSV file here or click to browse" tabindex="0">
+        <i data-lucide="upload-cloud" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
+        <p class="text-sm font-medium text-gray-700">Drop your CSV file here</p>
+        <p class="text-xs text-gray-500 mt-1">or <span class="text-aps-blue underline">click to browse</span></p>
+        <p class="text-xs text-gray-400 mt-3">Accepts .csv files up to 10 MB</p>
+        <input type="file" id="csv-file" accept=".csv" class="hidden" onchange="handleFileSelect(this)" />
+      </div>
+
+      <div id="csv-preview" class="hidden mt-4 bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="file-text" class="w-4 h-4 text-aps-blue"></i>
+            <span class="text-sm font-medium" id="file-name">operations.csv</span>
+          </div>
+          <div class="flex gap-2 text-xs">
+            <span class="px-2 py-1 rounded-full badge-add">+3 add</span>
+            <span class="px-2 py-1 rounded-full badge-remove">-1 remove</span>
+            <span class="px-2 py-1 rounded-full badge-update">~1 update</span>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead class="bg-gray-50 text-gray-500 uppercase tracking-wide text-xs">
+              <tr>
+                <th class="py-2 px-4 text-left font-medium">Row</th>
+                <th class="py-2 px-4 text-left font-medium">Action</th>
+                <th class="py-2 px-4 text-left font-medium">Email</th>
+                <th class="py-2 px-4 text-left font-medium">Role</th>
+                <th class="py-2 px-4 text-left font-medium">Project ID</th>
+                <th class="py-2 px-4 text-left font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100" id="csv-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <div class="bg-white border border-gray-200 rounded-xl p-5">
+        <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+          <i data-lucide="table-2" class="w-4 h-4 text-aps-blue"></i> Required columns
+        </h3>
+        <dl class="space-y-2 text-xs">
+          <div><dt class="font-medium text-gray-700 font-mono">email</dt><dd class="text-gray-500">User's email address (required)</dd></div>
+          <div><dt class="font-medium text-gray-700 font-mono">role</dt><dd class="text-gray-500">ACC role: <code>admin</code>, <code>member</code>, or <code>executive</code></dd></div>
+          <div><dt class="font-medium text-gray-700 font-mono">project_id</dt><dd class="text-gray-500">ACC project identifier (required)</dd></div>
+          <div><dt class="font-medium text-gray-700 font-mono">action</dt><dd class="text-gray-500"><code>add</code>, <code>update</code>, or <code>remove</code></dd></div>
+        </dl>
+        <p class="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-3">Optional: <code class="font-mono">first_name</code>, <code class="font-mono">last_name</code></p>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-xl p-5">
+        <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+          <i data-lucide="download" class="w-4 h-4 text-aps-blue"></i> Need a template?
+        </h3>
+        <button class="w-full text-sm text-aps-blue border border-aps-blue rounded-lg py-2 px-4 hover:bg-aps-light transition-colors flex items-center justify-center gap-2">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i> Download sample.csv
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 3 — BULK QUEUE
+══════════════════════════════════════════════════════════ -->
+<section id="screen-queue" class="screen" aria-label="Bulk operation queue">
+  <div class="mb-4 sm:mb-6 flex items-center justify-between sticky top-[120px] sm:top-[152px] z-30 bg-white shadow-sm border-b border-gray-100 -mx-4 px-4 py-3 sm:py-4">
+    <div>
+      <h2 class="text-xl font-semibold">Bulk Operation Queue</h2>
+      <p class="text-gray-500 text-sm mt-1 hidden sm:block sm:text-sm">Edit, add, or remove operations before running the dry-run preview.</p>
+    </div>
+    <button onclick="showScreen('screen-dryrun', 2)"
+            class="bg-aps-blue hover:bg-aps-hover text-white text-sm font-medium py-2 px-5 rounded-lg flex items-center gap-2 transition-colors">
+      <i data-lucide="eye" class="w-4 h-4"></i> Preview Changes
+    </button>
+  </div>
+
+  <div class="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+    <div class="bg-white border border-gray-200 rounded-xl p-3 sm:p-5 flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-4">
+      <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-green-100 flex items-center justify-center"><i data-lucide="user-plus" class="w-4 h-4 sm:w-5 sm:h-5 text-green-600"></i></div>
+      <div class="text-center sm:text-left"><div class="text-xl sm:text-2xl font-bold text-green-700" id="q-count-add">3</div><div class="text-xs text-gray-500 hidden sm:block sm:text-sm mt-0.5">Users to add</div></div>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-3 sm:p-5 flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-4">
+      <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-red-100 flex items-center justify-center"><i data-lucide="user-minus" class="w-4 h-4 sm:w-5 sm:h-5 text-red-600"></i></div>
+      <div class="text-center sm:text-left"><div class="text-xl sm:text-2xl font-bold text-red-700" id="q-count-remove">1</div><div class="text-xs text-gray-500 hidden sm:block sm:text-sm mt-0.5">Users to remove</div></div>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-3 sm:p-5 flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-4">
+      <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-yellow-100 flex items-center justify-center"><i data-lucide="user-cog" class="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600"></i></div>
+      <div class="text-center sm:text-left"><div class="text-xl sm:text-2xl font-bold text-yellow-700" id="q-count-update">1</div><div class="text-xs text-gray-500 hidden sm:block sm:text-sm mt-0.5">Role updates</div></div>
+    </div>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-xl">
+    <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+      <span class="text-sm font-medium" id="q-count-total">5 operations queued</span>
+      <button onclick="clearQueue()" class="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 transition-colors">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear queue
+      </button>
+    </div>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm table-fixed min-w-[640px]">
+      <colgroup>
+        <col class="w-28" />
+        <col />
+        <col class="w-24" />
+        <col class="w-44" />
+        <col class="w-16" />
+      </colgroup>
+      <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+        <tr>
+          <th class="py-2 px-4 text-left font-medium">Operation</th>
+          <th class="py-2 px-4 text-left font-medium">Email</th>
+          <th class="py-2 px-4 text-left font-medium">Role</th>
+          <th class="py-2 px-4 text-left font-medium">Project</th>
+          <th class="py-2 px-4"></th>
+        </tr>
+      </thead>
+      <tbody id="queue-tbody" class="divide-y divide-gray-100"></tbody>
+      <tfoot>
+        <tr>
+          <td colspan="5" class="px-3 py-2.5 border-t border-gray-100">
+            <button onclick="addQueueRow()" class="text-xs text-aps-blue hover:text-aps-hover flex items-center gap-1.5 transition-colors font-medium">
+              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Add operation
+            </button>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 6 — DRY-RUN PREVIEW
+══════════════════════════════════════════════════════════ -->
+<section id="screen-dryrun" class="screen" aria-label="Preview changes (dry-run)">
+  <div class="mb-4 sm:mb-6 flex items-center justify-between sticky top-[120px] sm:top-[152px] z-30 bg-white shadow-sm border-b border-gray-100 -mx-4 px-4 py-3 sm:py-4">
+    <div>
+      <h2 class="text-xl font-semibold">Preview Changes</h2>
+      <p class="text-gray-500 text-sm mt-1 hidden sm:block sm:text-sm">Review what will change in each project before committing. No changes have been made yet.</p>
+    </div>
+    <div class="flex gap-3">
+      <button onclick="showScreen('screen-queue', 1)"
+              class="border border-gray-300 text-sm font-medium py-2 px-4 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i> <span class="hidden sm:inline">Back to Queue</span><span class="sm:hidden">Back</span>
+      </button>
+      <button onclick="showScreen('screen-execution', 3)"
+              class="bg-aps-blue hover:bg-aps-hover text-white text-sm font-medium py-2 px-5 rounded-lg flex items-center gap-2 transition-colors">
+        <i data-lucide="play" class="w-4 h-4"></i> <span class="hidden sm:inline">Confirm &amp; Execute</span><span class="sm:hidden">Execute</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+    <i data-lucide="info" class="w-5 h-5 text-aps-blue mt-0.5 flex-shrink-0"></i>
+    <div class="text-sm">
+      <p class="font-medium text-blue-900">Dry-run complete — 5 operations validated across 3 projects</p>
+      <p class="text-blue-700 mt-0.5">All entries passed ACC API constraint checks. Review the diff below and click <strong>Confirm &amp; Execute</strong> to apply changes.</p>
+    </div>
+  </div>
+
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+    <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0"></i>
+    <div class="text-sm">
+      <p class="font-medium text-amber-900">1 constraint warning detected</p>
+      <p class="text-amber-700 mt-0.5"><code class="bg-amber-100 px-1 rounded text-xs font-mono">bridge-proj-001</code> — <strong>bob@example.com</strong> is already an admin in the parent account. Adding as project Admin may be redundant.</p>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <!-- Project 1 -->
+    <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <button class="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors" onclick="toggleProject('tower-body')">
+        <div class="flex items-center gap-3">
+          <i data-lucide="building-2" class="w-5 h-5 text-gray-400"></i>
+          <span class="font-semibold text-sm">Residential Tower A</span>
+          <span class="text-xs text-gray-400 font-mono">res-tower-001</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="badge-add px-2 py-0.5 rounded-full text-xs font-medium">+1 added</span>
+          <span class="badge-update px-2 py-0.5 rounded-full text-xs font-medium">~1 updated</span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400" id="tower-chevron"></i>
+        </div>
+      </button>
+      <div id="tower-body" class="border-t border-gray-100 overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead class="bg-gray-50 text-gray-500 uppercase tracking-wide"><tr><th class="py-2 px-5 text-left font-medium w-24">Change</th><th class="py-2 px-5 text-left font-medium">Email</th><th class="py-2 px-5 text-left font-medium">Name</th><th class="py-2 px-5 text-left font-medium">Role (before)</th><th class="py-2 px-5 text-left font-medium">Role (after)</th></tr></thead>
+          <tbody>
+            <tr class="diff-add"><td class="py-2.5 px-5 font-medium text-green-700">+ Add</td><td class="py-2.5 px-5">alice@example.com</td><td class="py-2.5 px-5">Alice Chen</td><td class="py-2.5 px-5 text-gray-400">—</td><td class="py-2.5 px-5 font-medium">Member</td></tr>
+            <tr class="diff-update"><td class="py-2.5 px-5 font-medium text-yellow-700">~ Update</td><td class="py-2.5 px-5">diana@example.com</td><td class="py-2.5 px-5">Diana Park</td><td class="py-2.5 px-5 text-gray-500 line-through">Member</td><td class="py-2.5 px-5 font-medium">Admin</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Project 2 -->
+    <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <button class="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors" onclick="toggleProject('bridge-body')">
+        <div class="flex items-center gap-3">
+          <i data-lucide="building-2" class="w-5 h-5 text-gray-400"></i>
+          <span class="font-semibold text-sm">Bridge Renovation 2025</span>
+          <span class="text-xs text-gray-400 font-mono">bridge-proj-001</span>
+          <span class="flex items-center gap-1 text-amber-600 text-xs"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Warning</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="badge-add px-2 py-0.5 rounded-full text-xs font-medium">+1 added</span>
+          <span class="badge-remove px-2 py-0.5 rounded-full text-xs font-medium">-1 removed</span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400" id="bridge-chevron"></i>
+        </div>
+      </button>
+      <div id="bridge-body" class="border-t border-gray-100 overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead class="bg-gray-50 text-gray-500 uppercase tracking-wide"><tr><th class="py-2 px-5 text-left font-medium w-24">Change</th><th class="py-2 px-5 text-left font-medium">Email</th><th class="py-2 px-5 text-left font-medium">Name</th><th class="py-2 px-5 text-left font-medium">Role (before)</th><th class="py-2 px-5 text-left font-medium">Role (after)</th></tr></thead>
+          <tbody>
+            <tr class="diff-add"><td class="py-2.5 px-5 font-medium text-green-700">+ Add</td><td class="py-2.5 px-5">bob@example.com</td><td class="py-2.5 px-5">Bob Kumar</td><td class="py-2.5 px-5 text-gray-400">—</td><td class="py-2.5 px-5 font-medium">Admin</td></tr>
+            <tr class="diff-remove"><td class="py-2.5 px-5 font-medium text-red-700">− Remove</td><td class="py-2.5 px-5">eve@example.com</td><td class="py-2.5 px-5">Eve Torres</td><td class="py-2.5 px-5 text-gray-500 line-through">Member</td><td class="py-2.5 px-5 text-gray-400">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Project 3 -->
+    <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <button class="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors" onclick="toggleProject('metro-body')">
+        <div class="flex items-center gap-3">
+          <i data-lucide="building-2" class="w-5 h-5 text-gray-400"></i>
+          <span class="font-semibold text-sm">Metro Station West</span>
+          <span class="text-xs text-gray-400 font-mono">metro-proj-001</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="badge-add px-2 py-0.5 rounded-full text-xs font-medium">+1 added</span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400" id="metro-chevron"></i>
+        </div>
+      </button>
+      <div id="metro-body" class="border-t border-gray-100 overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead class="bg-gray-50 text-gray-500 uppercase tracking-wide"><tr><th class="py-2 px-5 text-left font-medium w-24">Change</th><th class="py-2 px-5 text-left font-medium">Email</th><th class="py-2 px-5 text-left font-medium">Name</th><th class="py-2 px-5 text-left font-medium">Role (before)</th><th class="py-2 px-5 text-left font-medium">Role (after)</th></tr></thead>
+          <tbody>
+            <tr class="diff-add"><td class="py-2.5 px-5 font-medium text-green-700">+ Add</td><td class="py-2.5 px-5">carol@example.com</td><td class="py-2.5 px-5">Carol Nguyen</td><td class="py-2.5 px-5 text-gray-400">—</td><td class="py-2.5 px-5 font-medium">Member</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-6 bg-gray-50 border border-gray-200 rounded-xl p-4 text-xs text-gray-500 flex items-start gap-2">
+    <i data-lucide="shield" class="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0"></i>
+    <div><span class="font-medium text-gray-700">Rollback strategy:</span> Operations are applied per-project in sequence. If a project fails mid-way, already-completed projects are <em>not</em> automatically reversed — a rollback CSV will be generated listing the inverse operations. Use the "Retry Failed" button to re-attempt only failed rows.</div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 7 — EXECUTION
+══════════════════════════════════════════════════════════ -->
+<section id="screen-execution" class="screen" aria-label="Execution progress">
+  <div class="mb-4 sm:mb-6 flex items-center justify-between sticky top-[120px] sm:top-[152px] z-30 bg-white shadow-sm border-b border-gray-100 -mx-4 px-4 py-3 sm:py-4">
+    <div>
+      <h2 class="text-xl font-semibold">Executing Changes</h2>
+      <p class="text-gray-500 text-sm mt-1 hidden sm:block sm:text-sm">Applying bulk operations to ACC. Do not close this tab.</p>
+    </div>
+    <button id="retry-btn" class="hidden border border-red-300 text-red-600 text-sm font-medium py-2 px-4 rounded-lg flex items-center gap-2 hover:bg-red-50 transition-colors">
+      <i data-lucide="refresh-cw" class="w-4 h-4"></i> Retry Failed
+    </button>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-xl p-5 mb-6">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-sm font-medium" id="progress-label">Running… 2 of 5 complete</span>
+      <span class="text-sm text-gray-500" id="progress-pct">40%</span>
+    </div>
+    <div class="w-full bg-gray-100 rounded-full h-2.5">
+      <div class="progress-bar-inner" id="overall-bar" style="width: 40%;"></div>
+    </div>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-xl overflow-x-auto">
+    <table class="w-full text-sm min-w-[560px]">
+      <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+        <tr>
+          <th class="py-2 px-4 text-left font-medium">Status</th>
+          <th class="py-2 px-4 text-left font-medium">Operation</th>
+          <th class="py-2 px-4 text-left font-medium">Email</th>
+          <th class="py-2 px-4 text-left font-medium">Project</th>
+          <th class="py-2 px-4 text-left font-medium">Progress</th>
+          <th class="py-2 px-4 text-left font-medium"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100" id="exec-body"></tbody>
+    </table>
+  </div>
+
+  <div id="exec-summary" class="hidden mt-6 bg-green-50 border border-green-200 rounded-xl p-5">
+    <div class="flex items-center gap-3 mb-3">
+      <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
+      <h3 class="font-semibold text-green-900">Bulk operation complete</h3>
+    </div>
+    <div class="grid grid-cols-3 gap-4 text-sm">
+      <div class="text-center"><div class="text-2xl font-bold text-green-700">4</div><div class="text-xs text-gray-500">Succeeded</div></div>
+      <div class="text-center"><div class="text-2xl font-bold text-red-600">1</div><div class="text-xs text-gray-500">Failed</div></div>
+      <div class="text-center"><div class="text-2xl font-bold text-gray-700">0</div><div class="text-xs text-gray-500">Skipped</div></div>
+    </div>
+    <div class="mt-4 flex gap-3">
+      <button class="text-sm bg-aps-blue text-white py-2 px-4 rounded-lg hover:bg-aps-hover transition-colors flex items-center gap-2">
+        <i data-lucide="download" class="w-4 h-4"></i> Download rollback CSV
+      </button>
+      <button onclick="showScreen('screen-csv', 0)"
+              class="text-sm border border-gray-300 py-2 px-4 rounded-lg hover:bg-gray-50 transition-colors">
+        Start new operation
+      </button>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ── TOAST ──────────────────────────────────────────────── -->
+<div id="toast" class="fixed bottom-6 right-6 bg-gray-900 text-white text-sm px-5 py-3 rounded-xl shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none flex items-center gap-2 z-50">
+  <i data-lucide="check-circle" class="w-4 h-4 text-green-400"></i>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────
+const QUEUE_PROJECTS = [
+  'Residential Tower A',
+  'Bridge Renovation 2025',
+  'Metro Station West',
+  'Office Park Phase 2',
+  'Highway Extension 12A',
+  'City Hospital Annex',
+];
+
+let QUEUE = [
+  { id: 1, action: 'add',    email: 'alice@example.com', role: 'Member', project: 'Residential Tower A'    },
+  { id: 2, action: 'add',    email: 'bob@example.com',   role: 'Admin',  project: 'Bridge Renovation 2025' },
+  { id: 3, action: 'add',    email: 'carol@example.com', role: 'Member', project: 'Metro Station West'     },
+  { id: 4, action: 'update', email: 'diana@example.com', role: 'Admin',  project: 'Residential Tower A'    },
+  { id: 5, action: 'remove', email: 'eve@example.com',   role: '',       project: 'Bridge Renovation 2025' },
+];
+let nextQueueId = 6;
+
+const CSV_ROWS = [
+  { row: 2, action: 'add',    email: 'alice@example.com', role: 'Member', project_id: 'res-tower-001',   status: 'valid'   },
+  { row: 3, action: 'add',    email: 'bob@example.com',   role: 'Admin',  project_id: 'bridge-proj-001', status: 'warning' },
+  { row: 4, action: 'add',    email: 'carol@example.com', role: 'Member', project_id: 'metro-proj-001',  status: 'valid'   },
+  { row: 5, action: 'update', email: 'diana@example.com', role: 'Admin',  project_id: 'res-tower-001',   status: 'valid'   },
+  { row: 6, action: 'remove', email: 'eve@example.com',   role: '',       project_id: 'bridge-proj-001', status: 'valid'   },
+];
+
+const EXEC_OPS = [
+  { op: '+ Add',    email: 'alice@example.com', project: 'Residential Tower A',    state: 'done',    pct: 100 },
+  { op: '+ Add',    email: 'bob@example.com',   project: 'Bridge Renovation 2025', state: 'done',    pct: 100 },
+  { op: '+ Add',    email: 'carol@example.com', project: 'Metro Station West',     state: 'running', pct: 60  },
+  { op: '~ Update', email: 'diana@example.com', project: 'Residential Tower A',    state: 'queued',  pct: 0   },
+  { op: '− Remove', email: 'eve@example.com',   project: 'Bridge Renovation 2025', state: 'error',   pct: 0   },
+];
+
+// ── NAVIGATION ────────────────────────────────────────────
+function showScreen(id, stepIdx) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+
+  const nav    = document.getElementById('step-nav');
+  const btns   = document.querySelectorAll('.step-btn');
+  const labels = document.querySelectorAll('.step-label');
+  const lines  = document.querySelectorAll('.step-line');
+
+  if (id === 'screen-login') {
+    nav.classList.add('hidden');
+  } else {
+    nav.classList.remove('hidden');
+    btns.forEach((btn, i) => {
+      btn.classList.remove('active', 'done');
+      labels[i].classList.remove('active');
+      if (i < stepIdx) {
+        btn.classList.add('done');
+        btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i>';
+      } else if (i === stepIdx) {
+        btn.classList.add('active');
+        btn.innerHTML = String(i + 1);
+        labels[i].classList.add('active');
+      } else {
+        btn.innerHTML = String(i + 1);
+      }
+    });
+    lines.forEach((line, i) => line.classList.toggle('done', stepIdx > i));
+  }
+  lucide.createIcons();
+}
+
+// ── CSV ───────────────────────────────────────────────────
+function showCsvPreview() {
+  const actionBadge = a => ({ add: '<span class="badge-add px-2 py-0.5 rounded-full text-xs font-medium">+ Add</span>', remove: '<span class="badge-remove px-2 py-0.5 rounded-full text-xs font-medium">− Remove</span>', update: '<span class="badge-update px-2 py-0.5 rounded-full text-xs font-medium">~ Update</span>' }[a] || a);
+  const statusIcon  = s => s === 'valid'
+    ? '<span class="text-green-600 flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Valid</span>'
+    : '<span class="text-amber-600 flex items-center gap-1"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Warning</span>';
+  document.getElementById('csv-table-body').innerHTML = CSV_ROWS.map(r => `
+    <tr class="hover:bg-gray-50">
+      <td class="py-2 px-4 text-gray-400">${r.row}</td>
+      <td class="py-2 px-4">${actionBadge(r.action)}</td>
+      <td class="py-2 px-4">${r.email}</td>
+      <td class="py-2 px-4">${r.role || '—'}</td>
+      <td class="py-2 px-4 font-mono">${r.project_id}</td>
+      <td class="py-2 px-4">${statusIcon(r.status)}</td>
+    </tr>`).join('');
+  document.getElementById('csv-preview').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function handleFileSelect(input) {
+  if (input.files[0]) {
+    document.getElementById('file-name').textContent = input.files[0].name;
+    showCsvPreview();
+    toast('CSV parsed — 5 operations found');
+  }
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    document.getElementById('file-name').textContent = file.name;
+    showCsvPreview();
+    toast('CSV parsed — 5 operations found');
+  }
+}
+
+// ── QUEUE ─────────────────────────────────────────────────
+const ACTION_BADGE = {
+  add:    '<span class="badge-add    px-2 py-0.5 rounded-full text-xs font-medium">+ Add</span>',
+  update: '<span class="badge-update px-2 py-0.5 rounded-full text-xs font-medium">~ Update</span>',
+  remove: '<span class="badge-remove px-2 py-0.5 rounded-full text-xs font-medium">− Remove</span>',
+};
+
+function readRowHTML(q) {
+  return `
+    <td class="px-4">${ACTION_BADGE[q.action] || q.action}</td>
+    <td class="px-4 text-xs text-gray-700 truncate">${q.email || '<span class="text-gray-400 italic">no email</span>'}</td>
+    <td class="px-4 text-xs">${q.role || '—'}</td>
+    <td class="px-4 text-xs truncate">${q.project}</td>
+    <td class="px-4">
+      <div class="flex items-center gap-1 justify-end">
+        <button onclick="editQueueRow(${q.id})" class="text-gray-400 hover:text-aps-blue p-1 rounded transition-colors" aria-label="Edit">
+          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+        </button>
+        <button onclick="removeQueueRow(${q.id})" class="text-gray-400 hover:text-red-500 p-1 rounded transition-colors" aria-label="Remove">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+    </td>`;
+}
+
+function editRowHTML(q) {
+  const isRemove = q.action === 'remove';
+  return `
+    <td class="px-3">
+      <select id="eq-action-${q.id}" onchange="onActionChange(${q.id})"
+              class="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white cursor-pointer">
+        <option value="add"    ${q.action==='add'   ?'selected':''}>+ Add</option>
+        <option value="update" ${q.action==='update'?'selected':''}>~ Update</option>
+        <option value="remove" ${q.action==='remove'?'selected':''}>− Remove</option>
+      </select>
+    </td>
+    <td class="px-3">
+      <input type="email" id="eq-email-${q.id}" value="${q.email}" placeholder="user@example.com"
+             class="text-xs border border-gray-300 rounded-md px-2 py-1.5 w-full" />
+    </td>
+    <td class="px-3">
+      <select id="eq-role-${q.id}" ${isRemove ? 'disabled' : ''}
+              class="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white ${isRemove ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}">
+        <option value="Member"    ${q.role==='Member'   ?'selected':''}>Member</option>
+        <option value="Admin"     ${q.role==='Admin'    ?'selected':''}>Admin</option>
+        <option value="Executive" ${q.role==='Executive'?'selected':''}>Executive</option>
+      </select>
+    </td>
+    <td class="px-3">
+      <select id="eq-project-${q.id}" class="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white cursor-pointer w-full">
+        ${QUEUE_PROJECTS.map(p => `<option ${q.project===p?'selected':''}>${p}</option>`).join('')}
+      </select>
+    </td>
+    <td class="px-3">
+      <div class="flex items-center gap-1 justify-end">
+        <button onclick="saveQueueRow(${q.id})" class="text-aps-blue hover:text-aps-hover p-1 rounded transition-colors" aria-label="Save">
+          <i data-lucide="check" class="w-3.5 h-3.5"></i>
+        </button>
+        <button onclick="removeQueueRow(${q.id})" class="text-gray-400 hover:text-red-500 p-1 rounded transition-colors" aria-label="Remove">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+    </td>`;
+}
+
+function makeRow(q, editing = false) {
+  const tr = document.createElement('tr');
+  tr.setAttribute('data-qid', q.id);
+  tr.className = editing
+    ? 'bg-aps-light border-l-2 border-aps-blue'
+    : 'hover:bg-gray-50 transition-colors';
+  tr.innerHTML = editing ? editRowHTML(q) : readRowHTML(q);
+  return tr;
+}
+
+function renderQueue() {
+  const tbody = document.getElementById('queue-tbody');
+  if (QUEUE.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-sm text-gray-400">Queue is empty — add an operation below or go back to upload a CSV.</td></tr>`;
+  } else {
+    tbody.innerHTML = '';
+    QUEUE.forEach(q => tbody.appendChild(makeRow(q, false)));
+  }
+  updateQueueCounters();
+  lucide.createIcons();
+}
+
+function editQueueRow(id) {
+  const q  = QUEUE.find(q => q.id === id);
+  const tr = document.querySelector(`tr[data-qid="${id}"]`);
+  if (!q || !tr) return;
+  tr.replaceWith(makeRow(q, true));
+  lucide.createIcons();
+  document.getElementById(`eq-email-${id}`)?.focus();
+}
+
+function saveQueueRow(id) {
+  const q = QUEUE.find(q => q.id === id);
+  if (!q) return;
+  q.action  = document.getElementById(`eq-action-${id}`).value;
+  q.email   = document.getElementById(`eq-email-${id}`).value.trim();
+  q.role    = q.action === 'remove' ? '' : document.getElementById(`eq-role-${id}`).value;
+  q.project = document.getElementById(`eq-project-${id}`).value;
+  const tr  = document.querySelector(`tr[data-qid="${id}"]`);
+  tr.replaceWith(makeRow(q, false));
+  updateQueueCounters();
+  lucide.createIcons();
+}
+
+function onActionChange(id) {
+  const actionEl = document.getElementById(`eq-action-${id}`);
+  const roleEl   = document.getElementById(`eq-role-${id}`);
+  if (!actionEl || !roleEl) return;
+  const isRemove = actionEl.value === 'remove';
+  roleEl.disabled = isRemove;
+  roleEl.className = `text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white ${isRemove ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`;
+}
+
+function removeQueueRow(id) {
+  QUEUE = QUEUE.filter(q => q.id !== id);
+  document.querySelector(`tr[data-qid="${id}"]`)?.remove();
+  if (QUEUE.length === 0) renderQueue(); // show empty state
+  else updateQueueCounters();
+}
+
+function addQueueRow() {
+  const q = { id: nextQueueId++, action: 'add', email: '', role: 'Member', project: QUEUE_PROJECTS[0] };
+  QUEUE.push(q);
+  const tbody = document.getElementById('queue-tbody');
+  // Clear empty-state row if present
+  if (QUEUE.length === 1) tbody.innerHTML = '';
+  const tr = makeRow(q, true);
+  tbody.appendChild(tr);
+  updateQueueCounters();
+  lucide.createIcons();
+  document.getElementById(`eq-email-${q.id}`)?.focus();
+}
+
+function clearQueue() {
+  if (QUEUE.length === 0) return;
+  if (confirm(`Clear all ${QUEUE.length} operations from the queue?`)) {
+    QUEUE = [];
+    renderQueue();
+  }
+}
+
+function updateQueueCounters() {
+  const adds    = QUEUE.filter(q => q.action === 'add').length;
+  const removes = QUEUE.filter(q => q.action === 'remove').length;
+  const updates = QUEUE.filter(q => q.action === 'update').length;
+  document.getElementById('q-count-add').textContent    = adds;
+  document.getElementById('q-count-remove').textContent = removes;
+  document.getElementById('q-count-update').textContent = updates;
+  const total = QUEUE.length;
+  document.getElementById('q-count-total').textContent  = `${total} operation${total !== 1 ? 's' : ''} queued`;
+}
+
+// ── EXECUTION ─────────────────────────────────────────────
+function renderExec() {
+  const stateUI = {
+    done:    { icon: 'check-circle', color: 'text-green-600', iconExtra: '',             label: 'Done'    },
+    running: { icon: 'loader',       color: 'text-aps-blue',  iconExtra: 'animate-spin', label: 'Running' },
+    queued:  { icon: 'clock',        color: 'text-gray-400',  iconExtra: '',             label: 'Queued'  },
+    error:   { icon: 'x-circle',     color: 'text-red-600',   iconExtra: '',             label: 'Failed'  },
+  };
+  document.getElementById('exec-body').innerHTML = EXEC_OPS.map(op => {
+    const ui = stateUI[op.state];
+    return `
+    <tr class="hover:bg-gray-50 ${op.state === 'error' ? 'bg-red-50/50' : ''}">
+      <td class="py-3 px-4">
+        <span class="flex items-center gap-1.5 text-xs ${ui.color} font-medium">
+          <i data-lucide="${ui.icon}" class="w-4 h-4 ${ui.color} ${ui.iconExtra}"></i>${ui.label}
+        </span>
+      </td>
+      <td class="py-3 px-4 text-xs">${op.op}</td>
+      <td class="py-3 px-4 text-xs">${op.email}</td>
+      <td class="py-3 px-4 text-xs">${op.project}</td>
+      <td class="py-3 px-4 w-40">
+        <div class="w-full bg-gray-100 rounded-full h-1.5">
+          <div class="h-1.5 rounded-full ${op.state === 'error' ? 'bg-red-500' : op.state === 'done' ? 'bg-green-500' : 'bg-aps-blue'}" style="width:${op.pct}%"></div>
+        </div>
+        <span class="text-xs text-gray-400">${op.pct}%</span>
+      </td>
+      <td class="py-3 px-4">
+        ${op.state === 'error' ? '<button class="text-xs text-red-600 border border-red-200 rounded px-2 py-1 hover:bg-red-50 flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Retry</button>' : ''}
+      </td>
+    </tr>`;
+  }).join('');
+  lucide.createIcons();
+}
+
+// ── COLLAPSIBLE PROJECT CARDS ─────────────────────────────
+function toggleProject(bodyId) {
+  const body    = document.getElementById(bodyId);
+  const chevron = document.getElementById(bodyId.replace('-body', '-chevron'));
+  const isOpen  = !body.classList.contains('hidden');
+  body.classList.toggle('hidden', isOpen);
+  if (chevron) chevron.style.transform = isOpen ? 'rotate(-90deg)' : 'rotate(0deg)';
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  el.classList.replace('opacity-0', 'opacity-100');
+  setTimeout(() => el.classList.replace('opacity-100', 'opacity-0'), 2500);
+}
+
+// ── PROGRESS SIMULATION ───────────────────────────────────
+function simulateProgress() {
+  let pct = 40;
+  const bar   = document.getElementById('overall-bar');
+  const label = document.getElementById('progress-label');
+  const pctEl = document.getElementById('progress-pct');
+  const interval = setInterval(() => {
+    pct = Math.min(pct + 5, 80);
+    bar.style.width = pct + '%';
+    pctEl.textContent = pct + '%';
+    label.textContent = pct < 80 ? `Running… ${Math.round(pct / 100 * 5)} of 5 complete` : '4 of 5 complete — 1 failed';
+    if (pct >= 80) {
+      clearInterval(interval);
+      setTimeout(() => {
+        document.getElementById('exec-summary').classList.remove('hidden');
+        document.getElementById('retry-btn').classList.remove('hidden');
+      }, 600);
+    }
+  }, 400);
+}
+
+// ── INIT ──────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderQueue();
+  renderExec();
+  lucide.createIcons();
+});
+
+const execObserver = new MutationObserver(() => {
+  if (document.getElementById('screen-execution').classList.contains('active')) {
+    simulateProgress();
+    execObserver.disconnect();
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  execObserver.observe(document.getElementById('screen-execution'), { attributeFilter: ['class'] });
+});
+</script>
+</body>
+</html>
