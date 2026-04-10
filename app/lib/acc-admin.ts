@@ -177,3 +177,225 @@ function normalizeProject(raw: RawProject, hubId: string, accountId: string): Pr
     updatedAt: raw.updated_at ?? raw.updatedAt ?? "",
   };
 }
+
+// --------------------------------------------------------------------------
+// Project users — internal models
+// --------------------------------------------------------------------------
+
+/**
+ * ACC role identifiers returned by the Project Admin API.
+ * Only the values the API actually sends are listed here.
+ */
+export type AccRole =
+  | "admin"
+  | "member"
+  | "project_admin"
+  | "project_manager"
+  | "gc_foreman"
+  | "gc_manager"
+  | "owner"
+  | "executive"
+  | "editor"
+  | "viewer"
+  | (string & {}); // allow unknown future values
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Administrator",
+  member: "Member",
+  project_admin: "Project Admin",
+  project_manager: "Project Manager",
+  gc_foreman: "GC Foreman",
+  gc_manager: "GC Manager",
+  owner: "Owner",
+  executive: "Executive",
+  editor: "Editor",
+  viewer: "Viewer",
+};
+
+/** Maps an ACC role identifier to a human-readable label. */
+export function roleLabel(role: string): string {
+  return ROLE_LABELS[role.toLowerCase()] ?? role;
+}
+
+export interface ProjectUser {
+  id: string;
+  projectId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: AccRole;
+  roleLabel: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AddUsersPayload {
+  email: string;
+  role: AccRole;
+  firstName?: string;
+  lastName?: string;
+}
+
+export interface UpdateUserPayload {
+  role: AccRole;
+}
+
+// --------------------------------------------------------------------------
+// Raw shapes from the ACC Project Admin API
+// --------------------------------------------------------------------------
+
+interface RawProjectUser {
+  id: string;
+  email: string;
+  first_name?: string;
+  firstName?: string;
+  last_name?: string;
+  lastName?: string;
+  role: string;
+  status?: string;
+  created_at?: string;
+  createdAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
+}
+
+interface ProjectUsersPage {
+  results: RawProjectUser[];
+  pagination: {
+    limit: number;
+    offset: number;
+    totalResults: number;
+    nextUrl?: string;
+  };
+}
+
+// --------------------------------------------------------------------------
+// Project user operations
+// --------------------------------------------------------------------------
+
+const USERS_PAGE_LIMIT = 100;
+
+/**
+ * Lists all users in a project, following pagination automatically.
+ * Uses ACC Project Admin API with a 2-legged token (`account:read`).
+ */
+export async function listProjectUsers(projectId: string, token: string): Promise<ProjectUser[]> {
+  const allUsers: ProjectUser[] = [];
+  let offset = 0;
+
+  while (true) {
+    const url =
+      `${APS_BASE}/construction/admin/v1/projects/${projectId}/users` +
+      `?limit=${USERS_PAGE_LIMIT}&offset=${offset}`;
+
+    const res = await apsFetch(url, token);
+    await requireOk(res, `listProjectUsers(${projectId}, offset=${offset})`);
+
+    const page: ProjectUsersPage = await res.json();
+
+    for (const u of page.results) {
+      allUsers.push(normalizeUser(u, projectId));
+    }
+
+    const fetched = offset + page.results.length;
+    if (fetched >= page.pagination.totalResults || page.results.length === 0) break;
+
+    offset = fetched;
+  }
+
+  return allUsers;
+}
+
+/**
+ * Adds one or more users to a project.
+ * The ACC API accepts a batch; returns the created user records.
+ */
+export async function addProjectUsers(
+  projectId: string,
+  users: AddUsersPayload[],
+  token: string,
+): Promise<ProjectUser[]> {
+  const url = `${APS_BASE}/construction/admin/v1/projects/${projectId}/users:import`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(users.map((u) => ({
+      email: u.email,
+      role: u.role,
+      first_name: u.firstName,
+      last_name: u.lastName,
+    }))),
+  });
+
+  await requireOk(res, `addProjectUsers(${projectId})`);
+
+  const data: { results?: RawProjectUser[] } = await res.json();
+  return (data.results ?? []).map((u) => normalizeUser(u, projectId));
+}
+
+/**
+ * Updates a user's role on a project.
+ */
+export async function updateProjectUser(
+  projectId: string,
+  userId: string,
+  payload: UpdateUserPayload,
+  token: string,
+): Promise<ProjectUser> {
+  const url = `${APS_BASE}/construction/admin/v1/projects/${projectId}/users/${userId}`;
+
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ role: payload.role }),
+  });
+
+  await requireOk(res, `updateProjectUser(${projectId}, ${userId})`);
+
+  const raw: RawProjectUser = await res.json();
+  return normalizeUser(raw, projectId);
+}
+
+/**
+ * Removes a user from a project.
+ */
+export async function removeProjectUser(
+  projectId: string,
+  userId: string,
+  token: string,
+): Promise<void> {
+  const url = `${APS_BASE}/construction/admin/v1/projects/${projectId}/users/${userId}`;
+
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  await requireOk(res, `removeProjectUser(${projectId}, ${userId})`);
+}
+
+function normalizeUser(raw: RawProjectUser, projectId: string): ProjectUser {
+  const role = raw.role ?? "";
+  return {
+    id: raw.id,
+    projectId,
+    email: raw.email,
+    firstName: raw.first_name ?? raw.firstName ?? "",
+    lastName: raw.last_name ?? raw.lastName ?? "",
+    role,
+    roleLabel: roleLabel(role),
+    status: raw.status ?? "active",
+    createdAt: raw.created_at ?? raw.createdAt ?? "",
+    updatedAt: raw.updated_at ?? raw.updatedAt ?? "",
+  };
+}
