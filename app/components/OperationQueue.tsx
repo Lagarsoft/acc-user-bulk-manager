@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useMemo } from "react";
-import type { CsvOperationRow } from "@/app/lib/csv-parser";
+import type { CsvOperationRow, CsvAction } from "@/app/lib/csv-parser";
 
 type OpStatus = "pending" | "running" | "success" | "error";
 
@@ -36,6 +36,74 @@ export default function OperationQueue({ operations, onClear }: Props) {
   const progressPct =
     counts.total > 0 ? Math.round((completed / counts.total) * 100) : 0;
 
+  /** Executes a single operation based on its action type. */
+  async function executeOp(op: QueueItem): Promise<void> {
+    if (op.action === "add") {
+      const res = await fetch(
+        `/api/projects/${encodeURIComponent(op.projectId)}/users`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            users: [
+              {
+                email: op.email,
+                role: op.role,
+                ...(op.firstName ? { firstName: op.firstName } : {}),
+                ...(op.lastName ? { lastName: op.lastName } : {}),
+              },
+            ],
+          }),
+        },
+      );
+      if (!res.ok) {
+        const data: { error?: string } = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      return;
+    }
+
+    // update and remove both need the userId — resolve via GET first
+    const listRes = await fetch(
+      `/api/projects/${encodeURIComponent(op.projectId)}/users`,
+    );
+    if (!listRes.ok) {
+      const data: { error?: string } = await listRes.json().catch(() => ({}));
+      throw new Error(data.error ?? `HTTP ${listRes.status}`);
+    }
+    const listData: { users?: { id: string; email: string }[] } = await listRes.json();
+    const match = (listData.users ?? []).find(
+      (u) => u.email.toLowerCase() === op.email.toLowerCase(),
+    );
+    if (!match) throw new Error(`User "${op.email}" not found in project`);
+
+    if (op.action === "update") {
+      const res = await fetch(
+        `/api/projects/${encodeURIComponent(op.projectId)}/users/${encodeURIComponent(match.id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: op.role }),
+        },
+      );
+      if (!res.ok) {
+        const data: { error?: string } = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      return;
+    }
+
+    // remove
+    const res = await fetch(
+      `/api/projects/${encodeURIComponent(op.projectId)}/users/${encodeURIComponent(match.id)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok && res.status !== 204) {
+      const data: { error?: string } = await res.json().catch(() => ({}));
+      throw new Error(data.error ?? `HTTP ${res.status}`);
+    }
+  }
+
   /** Runs all pending operations in `startItems` sequentially. */
   const executeQueue = useCallback(async (startItems: QueueItem[]) => {
     setRunning(true);
@@ -56,31 +124,8 @@ export default function OperationQueue({ operations, onClear }: Props) {
         return next;
       });
 
-      const op = startItems[i];
-
       try {
-        const res = await fetch(
-          `/api/projects/${encodeURIComponent(op.projectId)}/users`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              users: [
-                {
-                  email: op.email,
-                  role: op.role,
-                  ...(op.firstName ? { firstName: op.firstName } : {}),
-                  ...(op.lastName ? { lastName: op.lastName } : {}),
-                },
-              ],
-            }),
-          },
-        );
-
-        if (!res.ok) {
-          const data: { error?: string } = await res.json().catch(() => ({}));
-          throw new Error(data.error ?? `HTTP ${res.status}`);
-        }
+        await executeOp(startItems[i]);
 
         statuses[i] = "success";
         setItems((prev) => {
@@ -120,14 +165,37 @@ export default function OperationQueue({ operations, onClear }: Props) {
     cancelRef.current = true;
   }
 
+  const ActionBadge = ({ action }: { action: CsvAction }) => {
+    switch (action) {
+      case "add":
+        return (
+          <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-700">
+            + add
+          </span>
+        );
+      case "update":
+        return (
+          <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-700">
+            ~ update
+          </span>
+        );
+      case "remove":
+        return (
+          <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium bg-red-100 text-red-700">
+            − remove
+          </span>
+        );
+    }
+  };
+
   const StatusBadge = ({ status, error }: { status: OpStatus; error?: string }) => {
     switch (status) {
       case "pending":
         return <span className="text-gray-400 text-xs">Pending</span>;
       case "running":
         return (
-          <span className="text-blue-600 text-xs flex items-center gap-1">
-            <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+          <span className="text-aps-blue text-xs flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-aps-blue animate-pulse" />
             Running
           </span>
         );
@@ -163,7 +231,7 @@ export default function OperationQueue({ operations, onClear }: Props) {
           {counts.error > 0 && !running && (
             <button
               onClick={handleRetryFailed}
-              className="text-sm text-blue-600 hover:underline"
+              className="text-sm text-aps-blue hover:underline"
             >
               Retry failed
             </button>
@@ -186,7 +254,7 @@ export default function OperationQueue({ operations, onClear }: Props) {
               <button
                 onClick={handleExecuteAll}
                 disabled={counts.pending === 0}
-                className="bg-blue-600 text-white py-1.5 px-3 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-aps-blue text-white py-1.5 px-3 rounded-md text-sm font-medium hover:bg-aps-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Execute All
               </button>
@@ -206,7 +274,7 @@ export default function OperationQueue({ operations, onClear }: Props) {
           </div>
           <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
             <div
-              className="h-full bg-blue-500 transition-all duration-300"
+              className="h-full bg-aps-blue transition-all duration-300"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -221,6 +289,9 @@ export default function OperationQueue({ operations, onClear }: Props) {
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   Row
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Action
                 </th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   Email
@@ -251,8 +322,11 @@ export default function OperationQueue({ operations, onClear }: Props) {
                   }
                 >
                   <td className="px-4 py-2 text-gray-400 tabular-nums">{item.rowNumber}</td>
+                  <td className="px-4 py-2">
+                    <ActionBadge action={item.action} />
+                  </td>
                   <td className="px-4 py-2 text-gray-900">{item.email}</td>
-                  <td className="px-4 py-2 text-gray-700">{item.role}</td>
+                  <td className="px-4 py-2 text-gray-700">{item.role || "—"}</td>
                   <td className="px-4 py-2 text-gray-500 font-mono text-xs">{item.projectId}</td>
                   <td className="px-4 py-2">
                     <StatusBadge status={item.status} error={item.errorMessage} />

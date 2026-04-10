@@ -32,7 +32,7 @@ export default function ProjectSelector({
       <select
         defaultValue=""
         onChange={(e) => onHubChange(e.target.value)}
-        className="w-full border border-gray-300 rounded-md py-1.5 px-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full border border-gray-300 rounded-md py-1.5 px-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-aps-blue"
       >
         <option value="" disabled>
           Select account (hub)…
@@ -59,11 +59,11 @@ export default function ProjectSelector({
       {!loadingProjects && projects.length > 0 && (
         <>
           <div className="flex items-center gap-2 mb-2 text-xs">
-            <button onClick={onSelectAll} className="text-blue-600 hover:underline">
+            <button onClick={onSelectAll} className="text-aps-blue hover:underline">
               Select all
             </button>
             <span className="text-gray-300">|</span>
-            <button onClick={onDeselectAll} className="text-blue-600 hover:underline">
+            <button onClick={onDeselectAll} className="text-aps-blue hover:underline">
               Deselect all
             </button>
             <span className="ml-auto text-gray-400">{selectedProjectIds.size} selected</span>

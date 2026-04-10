@@ -1,10 +1,14 @@
 /**
  * CSV import parser for bulk user operations.
  *
- * Required columns: email, role, project_id
+ * Required columns: email, project_id, action
+ * Required for add/update: role
  * Optional columns: first_name, last_name
  *
- * Validates email format and role values per row.
+ * If the `action` column is absent the row defaults to "add" for
+ * backwards compatibility with CSVs produced before issue #23.
+ *
+ * Validates email format, role values, and action values per row.
  * Returns a structured operation queue and a list of per-row errors.
  */
 
@@ -14,8 +18,11 @@ import { AccRole } from "@/app/lib/acc-admin";
 // Public types
 // --------------------------------------------------------------------------
 
+export type CsvAction = "add" | "update" | "remove";
+
 export interface CsvOperationRow {
   rowNumber: number; // 1-indexed data row (header = row 1, first data row = 2)
+  action: CsvAction;
   projectId: string;
   email: string;
   role: AccRole;
@@ -50,6 +57,8 @@ const VALID_ROLES = new Set<string>([
   "editor",
   "viewer",
 ]);
+
+const VALID_ACTIONS = new Set<string>(["add", "update", "remove"]);
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -127,13 +136,13 @@ export function parseCsv(csvText: string): CsvParseResult {
     email: headers.indexOf("email"),
     role: headers.indexOf("role"),
     project_id: headers.indexOf("project_id"),
+    action: headers.indexOf("action"),
     first_name: headers.indexOf("first_name"),
     last_name: headers.indexOf("last_name"),
   };
 
   const missingHeaders: string[] = [];
   if (col.email === -1) missingHeaders.push("email");
-  if (col.role === -1) missingHeaders.push("role");
   if (col.project_id === -1) missingHeaders.push("project_id");
 
   if (missingHeaders.length > 0) {
@@ -154,8 +163,10 @@ export function parseCsv(csvText: string): CsvParseResult {
     const fields = parseLine(line);
 
     const email = fields[col.email] ?? "";
-    const role = (fields[col.role] ?? "").toLowerCase();
+    const role = col.role >= 0 ? (fields[col.role] ?? "").toLowerCase() : "";
     const projectId = fields[col.project_id] ?? "";
+    const rawAction = col.action >= 0 ? (fields[col.action] ?? "").toLowerCase() : "";
+    const action = (rawAction || "add") as CsvAction;
     const firstName = col.first_name >= 0 ? (fields[col.first_name] ?? "") : "";
     const lastName = col.last_name >= 0 ? (fields[col.last_name] ?? "") : "";
 
@@ -171,14 +182,25 @@ export function parseCsv(csvText: string): CsvParseResult {
       });
     }
 
-    if (!role) {
-      rowErrors.push({ rowNumber, field: "role", message: "role is required" });
-    } else if (!VALID_ROLES.has(role)) {
+    if (rawAction && !VALID_ACTIONS.has(rawAction)) {
       rowErrors.push({
         rowNumber,
-        field: "role",
-        message: `"${fields[col.role]}" is not a valid role. Accepted: ${[...VALID_ROLES].join(", ")}`,
+        field: "action",
+        message: `"${fields[col.action]}" is not a valid action. Accepted: add, update, remove`,
       });
+    }
+
+    // role is required for add and update, not for remove
+    if (action !== "remove") {
+      if (!role) {
+        rowErrors.push({ rowNumber, field: "role", message: "role is required for add/update" });
+      } else if (!VALID_ROLES.has(role)) {
+        rowErrors.push({
+          rowNumber,
+          field: "role",
+          message: `"${fields[col.role!]}" is not a valid role. Accepted: ${[...VALID_ROLES].join(", ")}`,
+        });
+      }
     }
 
     if (!projectId) {
@@ -194,6 +216,7 @@ export function parseCsv(csvText: string): CsvParseResult {
     } else {
       operations.push({
         rowNumber,
+        action,
         projectId,
         email,
         role: role as AccRole,
