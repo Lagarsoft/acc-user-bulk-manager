@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import type { Hub, Project, ProjectUser } from "@/app/lib/acc-admin";
+import type { Hub } from "@/app/lib/acc-admin";
 import type { CsvOperationRow, CsvRowError } from "@/app/lib/csv-parser";
-import ProjectSelector from "@/app/components/ProjectSelector";
-import UserTable from "@/app/components/UserTable";
+import StepNav from "@/app/components/StepNav";
+import WizardLayout from "@/app/components/WizardLayout";
 import CsvUploader from "@/app/components/CsvUploader";
 import OperationQueue from "@/app/components/OperationQueue";
 
@@ -13,168 +13,164 @@ interface Props {
   initialError: string | null;
 }
 
-export default function Dashboard({ initialHubs, initialError }: Props) {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
-  const [users, setUsers] = useState<ProjectUser[]>([]);
-  const [loadingProjects, setLoadingProjects] = useState(false);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-  const [error, setError] = useState<string | null>(initialError);
+/**
+ * Dashboard — orchestrates the 4-step bulk-import wizard.
+ *
+ * Step 0: Upload CSV     — parse the CSV; advance when operations exist
+ * Step 1: Bulk Queue     — review / edit operations; advance to dry-run
+ * Step 2: Preview Changes — dry-run diff (issue #9 placeholder)
+ * Step 3: Execution      — run operations (handled inside OperationQueue on step 1)
+ */
+export default function Dashboard({ initialHubs: _initialHubs, initialError }: Props) {
+  const [step, setStep] = useState(0);
   const [queueOps, setQueueOps] = useState<CsvOperationRow[] | null>(null);
-
-  const handleHubChange = useCallback(async (hubId: string) => {
-    setProjects([]);
-    setSelectedProjectIds(new Set());
-    setUsers([]);
-    if (!hubId) return;
-
-    setLoadingProjects(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/projects?hubId=${encodeURIComponent(hubId)}`);
-      const data: { projects?: Project[]; error?: string } = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to load projects");
-      setProjects(data.projects ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load projects");
-    } finally {
-      setLoadingProjects(false);
-    }
-  }, []);
-
-  const handleProjectToggle = useCallback((projectId: string) => {
-    setSelectedProjectIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(projectId)) {
-        next.delete(projectId);
-      } else {
-        next.add(projectId);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleLoadUsers = useCallback(async () => {
-    if (selectedProjectIds.size === 0) return;
-
-    setLoadingUsers(true);
-    setError(null);
-    setUsers([]);
-
-    try {
-      const results = await Promise.all(
-        [...selectedProjectIds].map(async (projectId) => {
-          const res = await fetch(
-            `/api/projects/${encodeURIComponent(projectId)}/users`,
-          );
-          const data: { users?: ProjectUser[]; error?: string } = await res.json();
-          if (!res.ok) throw new Error(data.error ?? `Failed to load users for ${projectId}`);
-          return data.users ?? [];
-        }),
-      );
-      setUsers(results.flat());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load users");
-    } finally {
-      setLoadingUsers(false);
-    }
-  }, [selectedProjectIds]);
+  const [error] = useState<string | null>(initialError);
 
   const handleCsvResult = useCallback((ops: CsvOperationRow[], _errors: CsvRowError[]) => {
     setQueueOps(ops);
   }, []);
 
-  const handleRoleUpdate = useCallback(
-    async (projectId: string, userId: string, role: string) => {
-      const res = await fetch(
-        `/api/projects/${encodeURIComponent(projectId)}/users/${encodeURIComponent(userId)}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role }),
-        },
-      );
-      const data: { user?: ProjectUser; error?: string } = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Role update failed");
-
-      const updated = data.user!;
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId && u.projectId === projectId
-            ? { ...u, role: updated.role, roleLabel: updated.roleLabel }
-            : u,
-        ),
-      );
-    },
-    [],
-  );
+  const handleClearQueue = useCallback(() => {
+    setQueueOps(null);
+    setStep(0);
+  }, []);
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <h1 className="text-xl font-semibold text-gray-900">ACC User Bulk Manager</h1>
-      </header>
+    <div className="min-h-screen bg-gray-50">
+      <StepNav currentStep={step} />
 
-      <div className="flex" style={{ height: "calc(100vh - 57px)" }}>
-        {/* Sidebar */}
-        <aside className="w-72 shrink-0 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto">
-            <ProjectSelector
-              hubs={initialHubs}
-              projects={projects}
-              selectedProjectIds={selectedProjectIds}
-              loadingProjects={loadingProjects}
-              onHubChange={handleHubChange}
-              onProjectToggle={handleProjectToggle}
-              onSelectAll={() => setSelectedProjectIds(new Set(projects.map((p) => p.id)))}
-              onDeselectAll={() => setSelectedProjectIds(new Set())}
-            />
-          </div>
-
-          {selectedProjectIds.size > 0 && (
-            <div className="shrink-0 p-4 border-t border-gray-200">
-              <button
-                onClick={handleLoadUsers}
-                disabled={loadingUsers}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loadingUsers
-                  ? "Loading…"
-                  : `Load Users (${selectedProjectIds.size} project${selectedProjectIds.size !== 1 ? "s" : ""})`}
-              </button>
-            </div>
-          )}
-        </aside>
-
-        {/* Main content */}
-        <section className="flex-1 overflow-auto p-6">
+      {/* ── Step 0: Upload CSV ─────────────────────────────── */}
+      {step === 0 && (
+        <WizardLayout
+          title="Upload CSV"
+          subtitle="Import a CSV file containing the user operations to perform."
+          nextLabel="Continue to Queue"
+          canAdvance={queueOps !== null && queueOps.length > 0}
+          onNext={() => setStep(1)}
+          showBack={false}
+        >
           {error && (
             <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}
-          <UserTable
-            users={users}
-            projects={projects}
-            onRoleUpdate={handleRoleUpdate}
-          />
 
-          {/* Bulk Import */}
-          <div className="mt-8">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Bulk Import via CSV</h2>
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
-              {queueOps === null ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
                 <CsvUploader onResult={handleCsvResult} />
-              ) : (
-                <OperationQueue
-                  operations={queueOps}
-                  onClear={() => setQueueOps(null)}
-                />
+              </div>
+
+              {queueOps && queueOps.length > 0 && (
+                <div className="mt-4 bg-white border border-gray-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-medium text-gray-700">
+                      {queueOps.length} operation{queueOps.length !== 1 ? "s" : ""} parsed — ready to review
+                    </p>
+                    <button
+                      onClick={() => setQueueOps(null)}
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="flex gap-2 text-xs">
+                    {["add", "update", "remove"].map((action) => {
+                      const count = queueOps.filter((o) => (o as { action?: string }).action === action || action === "add").length;
+                      if (action !== "add") return null;
+                      return (
+                        <span key={action} className="px-2 py-1 rounded-full bg-green-100 text-green-700">
+                          +{count} operations
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
+
+            {/* Side panel: column reference */}
+            <div className="space-y-4">
+              <div className="bg-white border border-gray-200 rounded-xl p-5">
+                <h3 className="text-sm font-semibold mb-3">Required columns</h3>
+                <dl className="space-y-2 text-xs">
+                  <div>
+                    <dt className="font-medium text-gray-700 font-mono">email</dt>
+                    <dd className="text-gray-500">User email address</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-gray-700 font-mono">role</dt>
+                    <dd className="text-gray-500">ACC role: admin, member, viewer…</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-gray-700 font-mono">project_id</dt>
+                    <dd className="text-gray-500">ACC project UUID</dd>
+                  </div>
+                </dl>
+                <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-3">
+                  Optional: <code className="font-mono">first_name</code>,{" "}
+                  <code className="font-mono">last_name</code>
+                </p>
+              </div>
+            </div>
           </div>
-        </section>
-      </div>
-    </main>
+        </WizardLayout>
+      )}
+
+      {/* ── Step 1: Bulk Queue ─────────────────────────────── */}
+      {step === 1 && queueOps && (
+        <WizardLayout
+          title="Bulk Operation Queue"
+          subtitle="Edit, add, or remove operations before running the dry-run preview."
+          nextLabel="Preview Changes"
+          onNext={() => setStep(2)}
+          onBack={() => setStep(0)}
+        >
+          <OperationQueue operations={queueOps} onClear={handleClearQueue} />
+        </WizardLayout>
+      )}
+
+      {/* ── Step 2: Preview Changes (placeholder) ─────────── */}
+      {step === 2 && (
+        <WizardLayout
+          title="Preview Changes"
+          subtitle="Review what will change in each project before committing. No changes have been made yet."
+          nextLabel="Confirm &amp; Execute"
+          onNext={() => setStep(3)}
+          onBack={() => setStep(1)}
+        >
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+            <span className="text-blue-600 font-bold text-lg">ℹ</span>
+            <div className="text-sm">
+              <p className="font-medium text-blue-900">Dry-run preview</p>
+              <p className="text-blue-700 mt-0.5">
+                The full dry-run diff view is tracked in issue #9 and will be implemented in a
+                future release. Click <strong>Confirm &amp; Execute</strong> to proceed directly
+                to execution.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 bg-gray-50 border border-gray-200 rounded-xl p-4 text-xs text-gray-500">
+            <span className="font-medium text-gray-700">Rollback strategy:</span> Operations are
+            applied per-project in sequence. If a project fails mid-way, already-completed projects
+            are not automatically reversed — use the "Retry Failed" button to re-attempt only
+            failed rows.
+          </div>
+        </WizardLayout>
+      )}
+
+      {/* ── Step 3: Execution ──────────────────────────────── */}
+      {step === 3 && queueOps && (
+        <WizardLayout
+          title="Executing Changes"
+          subtitle="Applying bulk operations to ACC. Do not close this tab."
+          showNext={false}
+          showBack={false}
+        >
+          <OperationQueue operations={queueOps} onClear={handleClearQueue} />
+        </WizardLayout>
+      )}
+    </div>
   );
 }
