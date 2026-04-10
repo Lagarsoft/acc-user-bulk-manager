@@ -168,6 +168,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
               ) : (
                 <OperationQueue
                   operations={queueOps}
+                  projects={projects}
                   onClear={() => setQueueOps(null)}
                 />
               )}
