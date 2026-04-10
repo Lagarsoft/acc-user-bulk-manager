@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useMemo } from "react";
-import type { CsvOperationRow } from "@/app/lib/csv-parser";
+import type { CsvOperationRow, CsvAction } from "@/app/lib/csv-parser";
 
 type OpStatus = "pending" | "running" | "success" | "error";
 
@@ -36,6 +36,74 @@ export default function OperationQueue({ operations, onClear }: Props) {
   const progressPct =
     counts.total > 0 ? Math.round((completed / counts.total) * 100) : 0;
 
+  /** Executes a single operation based on its action type. */
+  async function executeOp(op: QueueItem): Promise<void> {
+    if (op.action === "add") {
+      const res = await fetch(
+        `/api/projects/${encodeURIComponent(op.projectId)}/users`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            users: [
+              {
+                email: op.email,
+                role: op.role,
+                ...(op.firstName ? { firstName: op.firstName } : {}),
+                ...(op.lastName ? { lastName: op.lastName } : {}),
+              },
+            ],
+          }),
+        },
+      );
+      if (!res.ok) {
+        const data: { error?: string } = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      return;
+    }
+
+    // update and remove both need the userId — resolve via GET first
+    const listRes = await fetch(
+      `/api/projects/${encodeURIComponent(op.projectId)}/users`,
+    );
+    if (!listRes.ok) {
+      const data: { error?: string } = await listRes.json().catch(() => ({}));
+      throw new Error(data.error ?? `HTTP ${listRes.status}`);
+    }
+    const listData: { users?: { id: string; email: string }[] } = await listRes.json();
+    const match = (listData.users ?? []).find(
+      (u) => u.email.toLowerCase() === op.email.toLowerCase(),
+    );
+    if (!match) throw new Error(`User "${op.email}" not found in project`);
+
+    if (op.action === "update") {
+      const res = await fetch(
+        `/api/projects/${encodeURIComponent(op.projectId)}/users/${encodeURIComponent(match.id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: op.role }),
+        },
+      );
+      if (!res.ok) {
+        const data: { error?: string } = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      return;
+    }
+
+    // remove
+    const res = await fetch(
+      `/api/projects/${encodeURIComponent(op.projectId)}/users/${encodeURIComponent(match.id)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok && res.status !== 204) {
+      const data: { error?: string } = await res.json().catch(() => ({}));
+      throw new Error(data.error ?? `HTTP ${res.status}`);
+    }
+  }
+
   /** Runs all pending operations in `startItems` sequentially. */
   const executeQueue = useCallback(async (startItems: QueueItem[]) => {
     setRunning(true);
@@ -56,31 +124,8 @@ export default function OperationQueue({ operations, onClear }: Props) {
         return next;
       });
 
-      const op = startItems[i];
-
       try {
-        const res = await fetch(
-          `/api/projects/${encodeURIComponent(op.projectId)}/users`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              users: [
-                {
-                  email: op.email,
-                  role: op.role,
-                  ...(op.firstName ? { firstName: op.firstName } : {}),
-                  ...(op.lastName ? { lastName: op.lastName } : {}),
-                },
-              ],
-            }),
-          },
-        );
-
-        if (!res.ok) {
-          const data: { error?: string } = await res.json().catch(() => ({}));
-          throw new Error(data.error ?? `HTTP ${res.status}`);
-        }
+        await executeOp(startItems[i]);
 
         statuses[i] = "success";
         setItems((prev) => {
@@ -119,6 +164,29 @@ export default function OperationQueue({ operations, onClear }: Props) {
   function handleCancel() {
     cancelRef.current = true;
   }
+
+  const ActionBadge = ({ action }: { action: CsvAction }) => {
+    switch (action) {
+      case "add":
+        return (
+          <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-700">
+            + add
+          </span>
+        );
+      case "update":
+        return (
+          <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-700">
+            ~ update
+          </span>
+        );
+      case "remove":
+        return (
+          <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium bg-red-100 text-red-700">
+            − remove
+          </span>
+        );
+    }
+  };
 
   const StatusBadge = ({ status, error }: { status: OpStatus; error?: string }) => {
     switch (status) {
@@ -223,6 +291,9 @@ export default function OperationQueue({ operations, onClear }: Props) {
                   Row
                 </th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Action
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   Email
                 </th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -251,8 +322,11 @@ export default function OperationQueue({ operations, onClear }: Props) {
                   }
                 >
                   <td className="px-4 py-2 text-gray-400 tabular-nums">{item.rowNumber}</td>
+                  <td className="px-4 py-2">
+                    <ActionBadge action={item.action} />
+                  </td>
                   <td className="px-4 py-2 text-gray-900">{item.email}</td>
-                  <td className="px-4 py-2 text-gray-700">{item.role}</td>
+                  <td className="px-4 py-2 text-gray-700">{item.role || "—"}</td>
                   <td className="px-4 py-2 text-gray-500 font-mono text-xs">{item.projectId}</td>
                   <td className="px-4 py-2">
                     <StatusBadge status={item.status} error={item.errorMessage} />
