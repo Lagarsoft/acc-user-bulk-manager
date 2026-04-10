@@ -19,11 +19,11 @@ create a branch, write the code, commit, push, and open a PR.
 **If `$ARGUMENTS` is empty**, list open issues and pick the lowest-numbered one that has no
 open PR already linked to it:
 
-```!
+```bash
 gh issue list --repo Lagarsoft/acc-user-bulk-manager --state open --json number,title,labels,body --limit 20
 ```
 
-```!
+```bash
 gh pr list --repo Lagarsoft/acc-user-bulk-manager --state open --json headRefName --limit 50
 ```
 
@@ -32,7 +32,7 @@ Print the chosen issue number and title so the user can see which issue you are 
 
 **If `$ARGUMENTS` is not empty**, treat `$0` as the issue number. Fetch it:
 
-```!
+```bash
 gh issue view "$0" --repo Lagarsoft/acc-user-bulk-manager --json number,title,body,labels 2>/dev/null || echo "ISSUE_NOT_FOUND"
 ```
 
@@ -51,34 +51,28 @@ If the issue has unmet dependencies, stop and tell the user which issue to imple
 
 ## Step 3 — Check current branch and repo state
 
-```!
-git status --short
-```
+First, check for uncommitted changes:
 
-```!
-git branch --show-current
+```bash
+git status --short
 ```
 
 If there are uncommitted changes on the current branch, stop and tell the user to commit or
 stash them before proceeding.
 
-Make sure you are on `main` and it is up to date:
+Now switch to `main` and pull the latest changes:
 
-```!
-git fetch origin main --quiet && git log HEAD..origin/main --oneline
+```bash
+git checkout main && git pull origin main
 ```
 
-If `main` is behind, pull it first.
+Confirm you are on `main` and up to date before continuing.
 
 ## Step 4 — Create a branch
 
 Branch naming convention: `issue-{number}-{kebab-case-title-slug}` (max 50 chars total).
 
 Example: issue #3 titled "ACC Account Admin API" → `issue-3-acc-account-admin-api`
-
-```!
-git checkout main 2>/dev/null; git pull origin main --quiet 2>/dev/null; echo "ready"
-```
 
 Create and switch to the new branch:
 `git checkout -b issue-{number}-{slug}`
