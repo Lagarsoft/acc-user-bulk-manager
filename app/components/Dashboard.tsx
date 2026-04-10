@@ -2,8 +2,11 @@
 
 import { useState, useCallback } from "react";
 import type { Hub, Project, ProjectUser } from "@/app/lib/acc-admin";
+import type { CsvOperationRow, CsvRowError } from "@/app/lib/csv-parser";
 import ProjectSelector from "@/app/components/ProjectSelector";
 import UserTable from "@/app/components/UserTable";
+import CsvUploader from "@/app/components/CsvUploader";
+import OperationQueue from "@/app/components/OperationQueue";
 
 interface Props {
   initialHubs: Hub[];
@@ -17,6 +20,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
+  const [queueOps, setQueueOps] = useState<CsvOperationRow[] | null>(null);
 
   const handleHubChange = useCallback(async (hubId: string) => {
     setProjects([]);
@@ -75,6 +79,10 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
       setLoadingUsers(false);
     }
   }, [selectedProjectIds]);
+
+  const handleCsvResult = useCallback((ops: CsvOperationRow[], _errors: CsvRowError[]) => {
+    setQueueOps(ops);
+  }, []);
 
   const handleRoleUpdate = useCallback(
     async (projectId: string, userId: string, role: string) => {
@@ -150,6 +158,21 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
             projects={projects}
             onRoleUpdate={handleRoleUpdate}
           />
+
+          {/* Bulk Import */}
+          <div className="mt-8">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">Bulk Import via CSV</h2>
+            <div className="rounded-lg border border-gray-200 bg-white p-4">
+              {queueOps === null ? (
+                <CsvUploader onResult={handleCsvResult} />
+              ) : (
+                <OperationQueue
+                  operations={queueOps}
+                  onClear={() => setQueueOps(null)}
+                />
+              )}
+            </div>
+          </div>
         </section>
       </div>
     </main>
