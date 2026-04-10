@@ -126,8 +126,8 @@ export default function OperationQueue({ operations, onClear }: Props) {
         return <span className="text-gray-400 text-xs">Pending</span>;
       case "running":
         return (
-          <span className="text-blue-600 text-xs flex items-center gap-1">
-            <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+          <span className="text-aps-blue text-xs flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-aps-blue animate-pulse" />
             Running
           </span>
         );
@@ -163,7 +163,7 @@ export default function OperationQueue({ operations, onClear }: Props) {
           {counts.error > 0 && !running && (
             <button
               onClick={handleRetryFailed}
-              className="text-sm text-blue-600 hover:underline"
+              className="text-sm text-aps-blue hover:underline"
             >
               Retry failed
             </button>
@@ -186,7 +186,7 @@ export default function OperationQueue({ operations, onClear }: Props) {
               <button
                 onClick={handleExecuteAll}
                 disabled={counts.pending === 0}
-                className="bg-blue-600 text-white py-1.5 px-3 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-aps-blue text-white py-1.5 px-3 rounded-md text-sm font-medium hover:bg-aps-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Execute All
               </button>
@@ -206,7 +206,7 @@ export default function OperationQueue({ operations, onClear }: Props) {
           </div>
           <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
             <div
-              className="h-full bg-blue-500 transition-all duration-300"
+              className="h-full bg-aps-blue transition-all duration-300"
               style={{ width: `${progressPct}%` }}
             />
           </div>
