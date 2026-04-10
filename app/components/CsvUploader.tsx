@@ -53,9 +53,13 @@ export default function CsvUploader({ onResult }: Props) {
   return (
     <div>
       <p className="text-xs text-gray-500 mb-3">
-        Upload a CSV with columns: <code className="font-mono">email</code>,{" "}
-        <code className="font-mono">role</code>,{" "}
-        <code className="font-mono">project_id</code> (required) and{" "}
+        Upload a CSV with columns:{" "}
+        <code className="font-mono">email</code>,{" "}
+        <code className="font-mono">project_id</code> (required);{" "}
+        <code className="font-mono">action</code> (<code className="font-mono">add</code> /
+        <code className="font-mono">update</code> /{" "}
+        <code className="font-mono">remove</code>, defaults to <code className="font-mono">add</code>);{" "}
+        <code className="font-mono">role</code> (required for add/update);{" "}
         <code className="font-mono">first_name</code>,{" "}
         <code className="font-mono">last_name</code> (optional).
       </p>
