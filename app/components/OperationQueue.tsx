@@ -4,8 +4,10 @@ import { useState, useRef, useCallback, useMemo } from "react";
 import type { CsvOperationRow } from "@/app/lib/csv-parser";
 
 type OpStatus = "pending" | "running" | "success" | "error";
+type CsvAction = "add" | "update" | "remove";
 
 interface QueueItem extends CsvOperationRow {
+  action?: CsvAction; // added in #23; optional for backwards compatibility
   status: OpStatus;
   errorMessage?: string;
 }
@@ -31,6 +33,12 @@ export default function OperationQueue({ operations, onClear }: Props) {
     }),
     [items],
   );
+
+  // Execution is considered complete once the queue has run and nothing is still in progress.
+  const isExecutionComplete =
+    !running &&
+    counts.total > 0 &&
+    counts.pending + items.filter((i) => i.status === "running").length === 0;
 
   const completed = counts.success + counts.error;
   const progressPct =
@@ -118,6 +126,36 @@ export default function OperationQueue({ operations, onClear }: Props) {
 
   function handleCancel() {
     cancelRef.current = true;
+  }
+
+  function downloadRollbackCsv() {
+    const succeeded = items.filter((i) => i.status === "success");
+    const rows: string[] = ["email,project_id,action,role,first_name,last_name"];
+    for (const item of succeeded) {
+      const originalAction: CsvAction = item.action ?? "add";
+      let rollbackAction: CsvAction;
+      if (originalAction === "add") rollbackAction = "remove";
+      else if (originalAction === "remove") rollbackAction = "add";
+      else rollbackAction = "update";
+      const q = (v: string) => (v.includes(",") ? `"${v.replace(/"/g, '""')}"` : v);
+      rows.push(
+        [
+          q(item.email),
+          q(item.projectId),
+          rollbackAction,
+          q(item.role ?? ""),
+          q(item.firstName ?? ""),
+          q(item.lastName ?? ""),
+        ].join(","),
+      );
+    }
+    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "rollback.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const StatusBadge = ({ status, error }: { status: OpStatus; error?: string }) => {
@@ -209,6 +247,43 @@ export default function OperationQueue({ operations, onClear }: Props) {
               className="h-full bg-blue-500 transition-all duration-300"
               style={{ width: `${progressPct}%` }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Post-execution summary */}
+      {isExecutionComplete && (
+        <div className="mb-5 rounded-lg border border-gray-200 bg-white p-5">
+          <h3 className="text-sm font-semibold text-gray-800 mb-3">Execution complete</h3>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+              <div className="text-xl font-semibold text-green-700">{counts.success}</div>
+              <div className="text-xs text-green-600">Succeeded</div>
+            </div>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <div className="text-xl font-semibold text-red-700">{counts.error}</div>
+              <div className="text-xs text-red-600">Failed</div>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="text-xl font-semibold text-gray-600">{counts.pending}</div>
+              <div className="text-xs text-gray-500">Skipped</div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {counts.success > 0 && (
+              <button
+                onClick={downloadRollbackCsv}
+                className="text-sm bg-gray-100 text-gray-700 py-1.5 px-3 rounded-md hover:bg-gray-200 font-medium"
+              >
+                Download rollback CSV
+              </button>
+            )}
+            <button
+              onClick={onClear}
+              className="text-sm bg-blue-600 text-white py-1.5 px-3 rounded-md hover:bg-blue-700 font-medium"
+            >
+              Start new operation
+            </button>
           </div>
         </div>
       )}
