@@ -126,7 +126,7 @@ export default function Dashboard({ initialHubs: _initialHubs, initialError }: P
           onNext={() => setStep(2)}
           onBack={() => setStep(0)}
         >
-          <OperationQueue operations={queueOps} onClear={handleClearQueue} />
+          <OperationQueue operations={queueOps} projects={[]} onClear={handleClearQueue} />
         </WizardLayout>
       )}
 
@@ -168,7 +168,7 @@ export default function Dashboard({ initialHubs: _initialHubs, initialError }: P
           showNext={false}
           showBack={false}
         >
-          <OperationQueue operations={queueOps} onClear={handleClearQueue} />
+          <OperationQueue operations={queueOps} projects={[]} onClear={handleClearQueue} />
         </WizardLayout>
       )}
     </div>
