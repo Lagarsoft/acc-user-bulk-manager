@@ -121,7 +121,7 @@ export default function UserTable({ users, projects, onRoleUpdate }: Props) {
           placeholder="Filter by email, name, role, or project…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="flex-1 min-w-[200px] max-w-sm border border-gray-300 rounded-md py-1.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 min-w-[200px] max-w-sm border border-gray-300 rounded-md py-1.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-aps-blue"
         />
         <span className="text-sm text-gray-400">
           {sorted.length} of {users.length} user{users.length !== 1 ? "s" : ""}
@@ -165,7 +165,7 @@ export default function UserTable({ users, projects, onRoleUpdate }: Props) {
                         value={user.role}
                         disabled={isUpdating}
                         onChange={(e) => handleRoleChange(user, e.target.value)}
-                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-aps-blue disabled:opacity-50"
                       >
                         {ROLE_OPTIONS.map((opt) => (
                           <option key={opt.value} value={opt.value}>
