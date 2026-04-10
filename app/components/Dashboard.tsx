@@ -111,11 +111,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <h1 className="text-xl font-semibold text-gray-900">ACC User Bulk Manager</h1>
-      </header>
-
-      <div className="flex" style={{ height: "calc(100vh - 57px)" }}>
+      <div className="flex" style={{ height: "calc(100vh - 56px)" }}>
         {/* Sidebar */}
         <aside className="w-72 shrink-0 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto">
@@ -136,7 +132,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
               <button
                 onClick={handleLoadUsers}
                 disabled={loadingUsers}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-aps-blue text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-aps-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loadingUsers
                   ? "Loading…"
