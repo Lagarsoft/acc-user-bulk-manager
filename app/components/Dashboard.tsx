@@ -38,16 +38,19 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
   // Projects for the selected hub.
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
 
   // Fetch projects whenever the selected hub changes.
   useEffect(() => {
     if (!selectedHubId) {
       setProjects([]);
+      setProjectsError(null);
       return;
     }
 
     let cancelled = false;
     setProjectsLoading(true);
+    setProjectsError(null);
 
     fetch(`/api/projects?hubId=${encodeURIComponent(selectedHubId)}`)
       .then(async (res) => {
@@ -58,8 +61,11 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
       .then((loaded) => {
         if (!cancelled) setProjects(loaded);
       })
-      .catch(() => {
-        if (!cancelled) setProjects([]);
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setProjects([]);
+          setProjectsError(err instanceof Error ? err.message : "Failed to load projects");
+        }
       })
       .finally(() => {
         if (!cancelled) setProjectsLoading(false);
@@ -153,7 +159,12 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
 
               {/* Right sidebar: project lookup + column reference */}
               <div className="space-y-4">
-                <ProjectLookup projects={projects} loading={projectsLoading} />
+                <ProjectLookup
+                  projects={projects}
+                  loading={projectsLoading}
+                  error={projectsError}
+                  hubSelected={selectedHubId !== null}
+                />
 
                 <div className="bg-white border border-gray-200 rounded-xl p-5">
                   <h3 className="text-sm font-semibold mb-3">Required columns</h3>

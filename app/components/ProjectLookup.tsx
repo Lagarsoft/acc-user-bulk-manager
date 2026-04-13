@@ -6,6 +6,8 @@ import type { Project } from "@/app/lib/acc-admin";
 interface Props {
   projects: Project[];
   loading: boolean;
+  hubSelected: boolean;
+  error: string | null;
 }
 
 /**
@@ -14,7 +16,7 @@ interface Props {
  * Shown in the Step 0 sidebar so users can find project IDs while
  * building their CSV without leaving the app.
  */
-export default function ProjectLookup({ projects, loading }: Props) {
+export default function ProjectLookup({ projects, loading, hubSelected, error }: Props) {
   const [query, setQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -40,10 +42,14 @@ export default function ProjectLookup({ projects, loading }: Props) {
           <span className="w-4 h-4 border-2 border-[#0696D7] border-t-transparent rounded-full animate-spin" />
           Loading projects…
         </div>
-      ) : projects.length === 0 ? (
+      ) : error ? (
+        <p className="text-xs text-red-500 py-2">{error}</p>
+      ) : !hubSelected ? (
         <p className="text-xs text-gray-400 py-2">
           Select an account above to browse projects.
         </p>
+      ) : projects.length === 0 ? (
+        <p className="text-xs text-gray-400 py-2">No projects found in this account.</p>
       ) : (
         <>
           <input
