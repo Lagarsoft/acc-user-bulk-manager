@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getTwoLeggedToken } from "@/app/lib/aps-auth";
+import { COOKIE_ACCESS_TOKEN } from "@/app/lib/aps-auth";
 import { listProjectUsers } from "@/app/lib/acc-admin";
 
 /**
@@ -65,12 +65,9 @@ export async function GET(req: NextRequest) {
 
   const roleFilter = req.nextUrl.searchParams.get("role")?.toLowerCase() ?? null;
 
-  let token: string;
-  try {
-    token = await getTwoLeggedToken();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return Response.json({ error: message }, { status: 500 });
+  const token = req.cookies.get(COOKIE_ACCESS_TOKEN)?.value;
+  if (!token) {
+    return Response.json({ error: "Not authenticated" }, { status: 401 });
   }
 
   const encoder = new TextEncoder();

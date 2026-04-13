@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTwoLeggedToken } from "@/app/lib/aps-auth";
+import { COOKIE_ACCESS_TOKEN } from "@/app/lib/aps-auth";
 import { listProjectUsers } from "@/app/lib/acc-admin";
 import type { CsvOperationRow } from "@/app/lib/csv-parser";
 import type {
@@ -73,12 +73,9 @@ export async function POST(req: NextRequest) {
   let totalWarnings = 0;
   let totalErrors = 0;
 
-  let token: string;
-  try {
-    token = await getTwoLeggedToken();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+  const token = req.cookies.get(COOKIE_ACCESS_TOKEN)?.value;
+  if (!token) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
   for (const [projectId, ops] of byProject) {

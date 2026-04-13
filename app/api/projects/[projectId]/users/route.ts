@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTwoLeggedToken } from "@/app/lib/aps-auth";
+import { COOKIE_ACCESS_TOKEN } from "@/app/lib/aps-auth";
 import { listProjectUsers, addProjectUsers, AddUsersPayload } from "@/app/lib/acc-admin";
 
 /**
@@ -10,17 +10,24 @@ import { listProjectUsers, addProjectUsers, AddUsersPayload } from "@/app/lib/ac
  * Response 200:
  *   { users: ProjectUser[] }
  *
+ * Response 401:
+ *   { error: "Not authenticated" }
+ *
  * Response 500:
  *   { error: string }
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   const { projectId } = await params;
 
+  const token = req.cookies.get(COOKIE_ACCESS_TOKEN)?.value;
+  if (!token) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
   try {
-    const token = await getTwoLeggedToken();
     const users = await listProjectUsers(projectId, token);
     return NextResponse.json({ users });
   } catch (err) {
@@ -44,6 +51,9 @@ export async function GET(
  * Response 400:
  *   { error: string }
  *
+ * Response 401:
+ *   { error: "Not authenticated" }
+ *
  * Response 500:
  *   { error: string }
  */
@@ -52,6 +62,11 @@ export async function POST(
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   const { projectId } = await params;
+
+  const token = req.cookies.get(COOKIE_ACCESS_TOKEN)?.value;
+  if (!token) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
 
   let body: { users?: unknown };
   try {
@@ -79,7 +94,6 @@ export async function POST(
   }
 
   try {
-    const token = await getTwoLeggedToken();
     const created = await addProjectUsers(projectId, users, token);
     return NextResponse.json({ users: created }, { status: 201 });
   } catch (err) {
