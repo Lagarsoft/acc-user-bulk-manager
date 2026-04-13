@@ -115,7 +115,6 @@ export interface AccountUser {
  */
 export async function listHubs(token: string): Promise<Hub[]> {
   console.log("[APS] listHubs → DataManagement.getHubs");
-  console.log("[APS] listHubs curl:\n  curl -s -X GET 'https://developer.api.autodesk.com/project/v1/hubs' \\\n    -H 'Authorization: Bearer %s'", token);
   const response = await dmClient.getHubs({ accessToken: token });
   console.log("[APS] listHubs ✓ got", response.data?.length ?? 0, "hubs");
 
