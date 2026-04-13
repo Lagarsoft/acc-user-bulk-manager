@@ -1,15 +1,24 @@
 /**
- * ACC Account Admin API client.
+ * ACC Account Admin API client — built on @aps_sdk/construction-account-admin.
  *
  * Covers:
- *   - GET /hq/v1/accounts                                               → listHubs()
- *   - GET /construction/admin/v1/accounts/:accountId/projects           → listProjects()
+ *   - listHubs()                                                → reads APS_ACCOUNT_ID from env
+ *   - listProjects(accountId)                                   → AdminClient.getProjects()
+ *   - listProjectUsers(projectId)                               → AdminClient.getProjectUsers()
+ *   - addProjectUsers(projectId, users)                         → AdminClient.importProjectUsers()
+ *   - updateProjectUser(projectId, userId, payload)             → AdminClient.updateProjectUser()
+ *   - removeProjectUser(projectId, userId)                      → AdminClient.removeProjectUser()
  *
- * All functions accept a 2-legged access token (account:read scope).
- * Rate-limit responses (429) are retried with exponential back-off.
+ * All functions accept a 2-legged access token (account:read / account:write scope).
  */
 
-const APS_BASE = "https://developer.api.autodesk.com";
+import { AdminClient, ProjectUser as SdkProjectUser, ProjectUserResponse } from "@aps_sdk/construction-account-admin";
+import { DataManagementClient } from "@aps_sdk/data-management";
+
+const adminClient = new AdminClient();
+const dmClient = new DataManagementClient();
+
+const PAGE_LIMIT = 100;
 
 // --------------------------------------------------------------------------
 // Internal models
@@ -32,160 +41,6 @@ export interface Project {
   updatedAt: string;
 }
 
-// --------------------------------------------------------------------------
-// Raw shapes returned by the Autodesk APIs
-// --------------------------------------------------------------------------
-
-interface RawAccount {
-  id: string;
-  name: string;
-  region?: string;
-}
-
-interface RawProject {
-  id: string;
-  name: string;
-  status: string;
-  created_at?: string;
-  createdAt?: string;
-  updated_at?: string;
-  updatedAt?: string;
-}
-
-interface ProjectsPage {
-  results: RawProject[];
-  pagination: {
-    limit: number;
-    offset: number;
-    totalResults: number;
-    nextUrl?: string;
-  };
-}
-
-// --------------------------------------------------------------------------
-// HTTP helper with rate-limit retry
-// --------------------------------------------------------------------------
-
-async function apsFetch(url: string, token: string, retries = 4): Promise<Response> {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (res.status !== 429) return res;
-
-    const retryAfter = Number(res.headers.get("Retry-After") ?? "1");
-    const backoff = Math.min(retryAfter * 1000, 2 ** attempt * 1000);
-    await new Promise((r) => setTimeout(r, backoff));
-  }
-
-  // Final attempt — return whatever we get.
-  return fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
-}
-
-async function requireOk(res: Response, context: string): Promise<void> {
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`ACC Admin API error in ${context} (${res.status}): ${body}`);
-  }
-}
-
-// --------------------------------------------------------------------------
-// Hubs
-// --------------------------------------------------------------------------
-
-/**
- * Lists all ACC accounts visible to the service account.
- * Uses the BIM 360 HQ Account Admin API, which works with a 2-legged
- * token that has the `account:read` scope.
- */
-export async function listHubs(token: string): Promise<Hub[]> {
-  const url = `${APS_BASE}/hq/v1/accounts`;
-  const res = await apsFetch(url, token);
-  await requireOk(res, "listHubs");
-
-  const accounts: RawAccount[] = await res.json();
-
-  return accounts.map((a) => ({
-    id: `b.${a.id}`,
-    accountId: a.id,
-    name: a.name,
-    region: a.region ?? "US",
-  }));
-}
-
-// --------------------------------------------------------------------------
-// Projects
-// --------------------------------------------------------------------------
-
-const PROJECTS_PAGE_LIMIT = 100;
-
-/**
- * Lists all projects for the given account, following pagination automatically.
- * Uses the ACC Account Admin API with a 2-legged token (`account:read` scope).
- *
- * @param accountId - Raw UUID (without the "b." prefix).
- */
-export async function listProjects(accountId: string, token: string): Promise<Project[]> {
-  const hubId = `b.${accountId}`;
-  const allProjects: Project[] = [];
-  let offset = 0;
-
-  while (true) {
-    const url =
-      `${APS_BASE}/construction/admin/v1/accounts/${accountId}/projects` +
-      `?limit=${PROJECTS_PAGE_LIMIT}&offset=${offset}`;
-
-    const res = await apsFetch(url, token);
-    await requireOk(res, `listProjects(${accountId}, offset=${offset})`);
-
-    const page: ProjectsPage = await res.json();
-
-    for (const p of page.results) {
-      allProjects.push(normalizeProject(p, hubId, accountId));
-    }
-
-    const fetched = offset + page.results.length;
-    if (fetched >= page.pagination.totalResults || page.results.length === 0) break;
-
-    offset = fetched;
-  }
-
-  return allProjects;
-}
-
-function normalizeProject(raw: RawProject, hubId: string, accountId: string): Project {
-  const status = (raw.status ?? "active").toLowerCase();
-
-  return {
-    id: raw.id,
-    hubId,
-    accountId,
-    name: raw.name,
-    status: status === "active" || status === "inactive" || status === "suspended"
-      ? (status as Project["status"])
-      : "active",
-    createdAt: raw.created_at ?? raw.createdAt ?? "",
-    updatedAt: raw.updated_at ?? raw.updatedAt ?? "",
-  };
-}
-
-// --------------------------------------------------------------------------
-// Project users — internal models
-// --------------------------------------------------------------------------
-
-/**
- * ACC role identifiers returned by the Project Admin API.
- * Only the values the API actually sends are listed here.
- */
 export type AccRole =
   | "admin"
   | "member"
@@ -197,7 +52,7 @@ export type AccRole =
   | "executive"
   | "editor"
   | "viewer"
-  | (string & {}); // allow unknown future values
+  | (string & {});
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrator",
@@ -212,7 +67,6 @@ const ROLE_LABELS: Record<string, string> = {
   viewer: "Viewer",
 };
 
-/** Maps an ACC role identifier to a human-readable label. */
 export function roleLabel(role: string): string {
   return ROLE_LABELS[role.toLowerCase()] ?? role;
 }
@@ -242,100 +96,140 @@ export interface UpdateUserPayload {
 }
 
 // --------------------------------------------------------------------------
-// Raw shapes from the ACC Project Admin API
+// Hubs
 // --------------------------------------------------------------------------
 
-interface RawProjectUser {
-  id: string;
-  email: string;
-  first_name?: string;
-  firstName?: string;
-  last_name?: string;
-  lastName?: string;
-  role: string;
-  status?: string;
-  created_at?: string;
-  createdAt?: string;
-  updated_at?: string;
-  updatedAt?: string;
-}
+/**
+ * Lists all hubs the signed-in user has access to.
+ * Uses the Data Management API with a 3-legged token (data:read scope).
+ */
+export async function listHubs(token: string): Promise<Hub[]> {
+  console.log("[APS] listHubs → DataManagement.getHubs");
+  const response = await dmClient.getHubs({ accessToken: token });
+  console.log("[APS] listHubs ✓ got", response.data?.length ?? 0, "hubs");
 
-interface ProjectUsersPage {
-  results: RawProjectUser[];
-  pagination: {
-    limit: number;
-    offset: number;
-    totalResults: number;
-    nextUrl?: string;
-  };
+  return (response.data ?? []).map((hub) => {
+    const rawId = hub.id ?? "";
+    const accountId = rawId.startsWith("b.") ? rawId.slice(2) : rawId;
+    return {
+      id: rawId,
+      accountId,
+      name: hub.attributes?.name ?? accountId,
+      region: hub.attributes?.region ?? "US",
+    };
+  });
 }
 
 // --------------------------------------------------------------------------
-// Project user operations
+// Projects
 // --------------------------------------------------------------------------
 
-const USERS_PAGE_LIMIT = 100;
+/**
+ * Lists all projects for the given account, following pagination automatically.
+ */
+export async function listProjects(accountId: string, token: string): Promise<Project[]> {
+  console.log("[APS] listProjects → AdminClient.getProjects accountId=%s", accountId);
+  const hubId = `b.${accountId}`;
+  const allProjects: Project[] = [];
+  let offset = 0;
+
+  while (true) {
+    console.log("[APS] listProjects page offset=%d", offset);
+    const page = await adminClient.getProjects(accountId, {
+      limit: PAGE_LIMIT,
+      offset,
+      accessToken: token,
+    });
+
+    for (const p of page.results ?? []) {
+      allProjects.push({
+        id: p.id ?? "",
+        hubId,
+        accountId,
+        name: p.name ?? "",
+        status: normalizeStatus(p.status),
+        createdAt: (p as unknown as Record<string, string>).createdAt ?? "",
+        updatedAt: (p as unknown as Record<string, string>).updatedAt ?? "",
+      });
+    }
+
+    const fetched = offset + (page.results?.length ?? 0);
+    console.log("[APS] listProjects page got %d/%d projects", fetched, page.pagination?.totalResults ?? "?");
+    if (fetched >= (page.pagination?.totalResults ?? 0) || !page.results?.length) break;
+    offset = fetched;
+  }
+
+  console.log("[APS] listProjects ✓ total=%d", allProjects.length);
+  return allProjects;
+}
+
+function normalizeStatus(raw?: string): Project["status"] {
+  const s = (raw ?? "active").toLowerCase();
+  if (s === "active" || s === "inactive" || s === "suspended") return s;
+  return "active";
+}
+
+// --------------------------------------------------------------------------
+// Project users
+// --------------------------------------------------------------------------
 
 /**
  * Lists all users in a project, following pagination automatically.
- * Uses ACC Project Admin API with a 2-legged token (`account:read`).
  */
 export async function listProjectUsers(projectId: string, token: string): Promise<ProjectUser[]> {
+  console.log("[APS] listProjectUsers → AdminClient.getProjectUsers projectId=%s", projectId);
   const allUsers: ProjectUser[] = [];
   let offset = 0;
 
   while (true) {
-    const url =
-      `${APS_BASE}/construction/admin/v1/projects/${projectId}/users` +
-      `?limit=${USERS_PAGE_LIMIT}&offset=${offset}`;
+    console.log("[APS] listProjectUsers page offset=%d", offset);
+    const page = await adminClient.getProjectUsers(projectId, {
+      limit: PAGE_LIMIT,
+      offset,
+      accessToken: token,
+    });
 
-    const res = await apsFetch(url, token);
-    await requireOk(res, `listProjectUsers(${projectId}, offset=${offset})`);
-
-    const page: ProjectUsersPage = await res.json();
-
-    for (const u of page.results) {
-      allUsers.push(normalizeUser(u, projectId));
+    for (const u of page.results ?? []) {
+      allUsers.push(normalizeUser(u as SdkProjectUser, projectId));
     }
 
-    const fetched = offset + page.results.length;
-    if (fetched >= page.pagination.totalResults || page.results.length === 0) break;
-
+    const fetched = offset + (page.results?.length ?? 0);
+    console.log("[APS] listProjectUsers page got %d/%d users", fetched, page.pagination?.totalResults ?? "?");
+    if (fetched >= (page.pagination?.totalResults ?? 0) || !page.results?.length) break;
     offset = fetched;
   }
 
+  console.log("[APS] listProjectUsers ✓ total=%d", allUsers.length);
   return allUsers;
 }
 
 /**
- * Adds one or more users to a project.
- * The ACC API accepts a batch; returns the created user records.
+ * Adds one or more users to a project using the bulk import endpoint.
+ * The ACC import API is asynchronous — it returns a jobId, not user records.
+ * This function submits the import and returns an empty array; callers should
+ * re-fetch users after a short delay to confirm the operation completed.
  */
 export async function addProjectUsers(
   projectId: string,
   users: AddUsersPayload[],
   token: string,
 ): Promise<ProjectUser[]> {
-  const url = `${APS_BASE}/construction/admin/v1/projects/${projectId}/users:import`;
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+  console.log("[APS] addProjectUsers → AdminClient.importProjectUsers projectId=%s count=%d", projectId, users.length);
+  await adminClient.importProjectUsers(
+    projectId,
+    {
+      users: users.map((u) => ({
+        email: u.email,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        products: [],
+      })),
     },
-    body: JSON.stringify(users.map((u) => ({
-      email: u.email,
-      role: u.role,
-      first_name: u.firstName,
-      last_name: u.lastName,
-    }))),
-  });
+    { accessToken: token },
+  );
 
-  await requireOk(res, `addProjectUsers(${projectId})`);
-
-  const data: { results?: RawProjectUser[] } = await res.json();
-  return (data.results ?? []).map((u) => normalizeUser(u, projectId));
+  console.log("[APS] addProjectUsers ✓ import submitted");
+  return [];
 }
 
 /**
@@ -347,21 +241,16 @@ export async function updateProjectUser(
   payload: UpdateUserPayload,
   token: string,
 ): Promise<ProjectUser> {
-  const url = `${APS_BASE}/construction/admin/v1/projects/${projectId}/users/${userId}`;
+  console.log("[APS] updateProjectUser → AdminClient.updateProjectUser projectId=%s userId=%s role=%s", projectId, userId, payload.role);
+  const response = await adminClient.updateProjectUser(
+    projectId,
+    userId,
+    { roleIds: [payload.role] },
+    { accessToken: token },
+  );
 
-  const res = await fetch(url, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ role: payload.role }),
-  });
-
-  await requireOk(res, `updateProjectUser(${projectId}, ${userId})`);
-
-  const raw: RawProjectUser = await res.json();
-  return normalizeUser(raw, projectId);
+  console.log("[APS] updateProjectUser ✓");
+  return normalizeUserResponse(response, projectId);
 }
 
 /**
@@ -372,30 +261,45 @@ export async function removeProjectUser(
   userId: string,
   token: string,
 ): Promise<void> {
-  const url = `${APS_BASE}/construction/admin/v1/projects/${projectId}/users/${userId}`;
-
-  const res = await fetch(url, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  await requireOk(res, `removeProjectUser(${projectId}, ${userId})`);
+  console.log("[APS] removeProjectUser → AdminClient.removeProjectUser projectId=%s userId=%s", projectId, userId);
+  await adminClient.removeProjectUser(projectId, userId, { accessToken: token });
+  console.log("[APS] removeProjectUser ✓");
 }
 
-function normalizeUser(raw: RawProjectUser, projectId: string): ProjectUser {
-  const role = raw.role ?? "";
+// --------------------------------------------------------------------------
+// Normalizers
+// --------------------------------------------------------------------------
+
+function normalizeUser(raw: SdkProjectUser, projectId: string): ProjectUser {
+  const roleIds = raw.roleIds ?? [];
+  const role = roleIds[0] ?? "";
   return {
-    id: raw.id,
+    id: raw.id ?? "",
     projectId,
-    email: raw.email,
-    firstName: raw.first_name ?? raw.firstName ?? "",
-    lastName: raw.last_name ?? raw.lastName ?? "",
+    email: raw.email ?? "",
+    firstName: raw.firstName ?? "",
+    lastName: raw.lastName ?? "",
     role,
     roleLabel: roleLabel(role),
     status: raw.status ?? "active",
-    createdAt: raw.created_at ?? raw.createdAt ?? "",
-    updatedAt: raw.updated_at ?? raw.updatedAt ?? "",
+    createdAt: (raw as unknown as { createdAt?: string }).createdAt ?? "",
+    updatedAt: (raw as unknown as { updatedAt?: string }).updatedAt ?? "",
+  };
+}
+
+function normalizeUserResponse(raw: ProjectUserResponse, projectId: string): ProjectUser {
+  const roleIds = raw.roleIds ?? [];
+  const role = roleIds[0] ?? "";
+  return {
+    id: raw.id ?? "",
+    projectId,
+    email: raw.email ?? "",
+    firstName: raw.firstName ?? "",
+    lastName: raw.lastName ?? "",
+    role,
+    roleLabel: roleLabel(role),
+    status: raw.status ?? "active",
+    createdAt: raw.addedOn ?? "",
+    updatedAt: raw.updatedAt ?? "",
   };
 }

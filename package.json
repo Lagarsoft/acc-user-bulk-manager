@@ -10,11 +10,16 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@aps_sdk/authentication": "^1.0.1",
+    "@aps_sdk/autodesk-sdkmanager": "^1.0.1",
+    "@aps_sdk/construction-account-admin": "^1.2.1",
+    "@aps_sdk/data-management": "^1.1.4",
     "next": "^15.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -22,7 +27,6 @@
     "eslint-config-next": "^15.3.0",
     "prettier": "^3.4.0",
     "tailwindcss": "^4.0.0",
-    "@tailwindcss/postcss": "^4.0.0",
     "typescript": "^5.0.0"
   }
 }
