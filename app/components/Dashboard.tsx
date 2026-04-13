@@ -30,10 +30,32 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
   const [error] = useState<string | null>(initialError);
   const [dryRunHasErrors, setDryRunHasErrors] = useState(false);
 
+  const [hubs, setHubs] = useState<Hub[]>(initialHubs);
+
+  // Re-fetch hubs client-side so the selector works even when the
+  // server-side fetch in page.tsx fails (e.g. auth not ready at SSR time).
+  useEffect(() => {
+    if (hubs.length > 0) return; // already have hubs from SSR
+    fetch("/api/hubs")
+      .then(async (res) => {
+        const data: { hubs?: Hub[]; error?: string } = await res.json();
+        if (!res.ok) return;
+        setHubs(data.hubs ?? []);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Hub selection — auto-select when only one hub is available.
   const [selectedHubId, setSelectedHubId] = useState<string | null>(
     initialHubs.length === 1 ? initialHubs[0].id : null,
   );
+
+  // When hubs load client-side and there's only one, auto-select it.
+  useEffect(() => {
+    if (selectedHubId) return;
+    if (hubs.length === 1) setSelectedHubId(hubs[0].id);
+  }, [hubs, selectedHubId]);
 
   // Projects for the selected hub.
   const [projects, setProjects] = useState<Project[]>([]);
@@ -108,7 +130,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
           <div className="space-y-4">
             {/* Hub selector — only visible when user belongs to multiple hubs */}
             <HubSelector
-              hubs={initialHubs}
+              hubs={hubs}
               selectedHubId={selectedHubId}
               onSelect={setSelectedHubId}
             />
