@@ -1,5 +1,5 @@
 /**
- * APS (Autodesk Platform Services) OAuth helpers.
+ * APS (Autodesk Platform Services) OAuth helpers — built on @aps_sdk/authentication.
  *
  * 2-legged  – client_credentials, for server-side admin operations.
  *             Token is cached in module scope and refreshed automatically.
@@ -8,12 +8,12 @@
  *             Tokens are stored in HTTP-only cookies by the route handlers.
  */
 
-const APS_TOKEN_URL = "https://developer.api.autodesk.com/authentication/v2/token";
-const APS_AUTHORIZE_URL = "https://developer.api.autodesk.com/authentication/v2/authorize";
+import { AuthenticationClient, ResponseType, Scopes } from "@aps_sdk/authentication";
 
-// Scopes required by the ACC Account Admin and Project Admin APIs.
-const TWO_LEGGED_SCOPES = "account:read account:write";
-const THREE_LEGGED_SCOPES = "data:read data:write account:read";
+const authClient = new AuthenticationClient();
+
+const TWO_LEGGED_SCOPES = [Scopes.AccountRead, Scopes.AccountWrite];
+const THREE_LEGGED_SCOPES = [Scopes.DataRead, Scopes.DataWrite, Scopes.AccountRead];
 
 // --------------------------------------------------------------------------
 // 2-legged (client credentials)
@@ -38,31 +38,17 @@ export async function getTwoLeggedToken(): Promise<string> {
     throw new Error("APS_CLIENT_ID and APS_CLIENT_SECRET must be set");
   }
 
-  const body = new URLSearchParams({
-    grant_type: "client_credentials",
-    scope: TWO_LEGGED_SCOPES,
-  });
+  console.log("[APS] getTwoLeggedToken → AuthenticationClient.getTwoLeggedToken");
+  const token = await authClient.getTwoLeggedToken(
+    APS_CLIENT_ID,
+    APS_CLIENT_SECRET,
+    TWO_LEGGED_SCOPES,
+  );
+  console.log("[APS] getTwoLeggedToken ✓ expires_in=%d", token.expires_in);
 
-  const credentials = Buffer.from(`${APS_CLIENT_ID}:${APS_CLIENT_SECRET}`).toString("base64");
-
-  const res = await fetch(APS_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${credentials}`,
-    },
-    body,
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`APS 2-legged token request failed (${res.status}): ${text}`);
-  }
-
-  const data = (await res.json()) as { access_token: string; expires_in: number };
   twoLeggedCache = {
-    accessToken: data.access_token,
-    expiresAt: now + data.expires_in * 1000,
+    accessToken: token.access_token!,
+    expiresAt: now + (token.expires_in ?? 3600) * 1000,
   };
   return twoLeggedCache.accessToken;
 }
@@ -77,15 +63,13 @@ export function getAuthorizationUrl(state: string): string {
     throw new Error("APS_CLIENT_ID and APS_CALLBACK_URL must be set");
   }
 
-  const params = new URLSearchParams({
-    response_type: "code",
-    client_id: APS_CLIENT_ID,
-    redirect_uri: APS_CALLBACK_URL,
-    scope: THREE_LEGGED_SCOPES,
-    state,
-  });
-
-  return `${APS_AUTHORIZE_URL}?${params.toString()}`;
+  return authClient.authorize(
+    APS_CLIENT_ID,
+    ResponseType.Code,
+    APS_CALLBACK_URL,
+    THREE_LEGGED_SCOPES,
+    { state },
+  );
 }
 
 export interface ThreeLeggedTokens {
@@ -100,38 +84,19 @@ export async function exchangeCodeForTokens(code: string): Promise<ThreeLeggedTo
     throw new Error("APS_CLIENT_ID, APS_CLIENT_SECRET, and APS_CALLBACK_URL must be set");
   }
 
-  const body = new URLSearchParams({
-    grant_type: "authorization_code",
+  console.log("[APS] exchangeCodeForTokens → AuthenticationClient.getThreeLeggedToken");
+  const token = await authClient.getThreeLeggedToken(
+    APS_CLIENT_ID,
     code,
-    redirect_uri: APS_CALLBACK_URL,
-  });
-
-  const credentials = Buffer.from(`${APS_CLIENT_ID}:${APS_CLIENT_SECRET}`).toString("base64");
-
-  const res = await fetch(APS_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${credentials}`,
-    },
-    body,
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`APS code exchange failed (${res.status}): ${text}`);
-  }
-
-  const data = (await res.json()) as {
-    access_token: string;
-    refresh_token: string;
-    expires_in: number;
-  };
+    APS_CALLBACK_URL,
+    { clientSecret: APS_CLIENT_SECRET },
+  );
+  console.log("[APS] exchangeCodeForTokens ✓");
 
   return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresAt: Date.now() + data.expires_in * 1000,
+    accessToken: token.access_token!,
+    refreshToken: token.refresh_token!,
+    expiresAt: Date.now() + (token.expires_in ?? 3600) * 1000,
   };
 }
 
@@ -141,38 +106,18 @@ export async function refreshAccessToken(refreshToken: string): Promise<ThreeLeg
     throw new Error("APS_CLIENT_ID and APS_CLIENT_SECRET must be set");
   }
 
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    refresh_token: refreshToken,
-    scope: THREE_LEGGED_SCOPES,
-  });
-
-  const credentials = Buffer.from(`${APS_CLIENT_ID}:${APS_CLIENT_SECRET}`).toString("base64");
-
-  const res = await fetch(APS_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${credentials}`,
-    },
-    body,
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`APS token refresh failed (${res.status}): ${text}`);
-  }
-
-  const data = (await res.json()) as {
-    access_token: string;
-    refresh_token: string;
-    expires_in: number;
-  };
+  console.log("[APS] refreshAccessToken → AuthenticationClient.refreshToken");
+  const token = await authClient.refreshToken(
+    refreshToken,
+    APS_CLIENT_ID,
+    { clientSecret: APS_CLIENT_SECRET, scopes: THREE_LEGGED_SCOPES },
+  );
+  console.log("[APS] refreshAccessToken ✓");
 
   return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresAt: Date.now() + data.expires_in * 1000,
+    accessToken: token.access_token!,
+    refreshToken: token.refresh_token!,
+    expiresAt: Date.now() + (token.expires_in ?? 3600) * 1000,
   };
 }
 

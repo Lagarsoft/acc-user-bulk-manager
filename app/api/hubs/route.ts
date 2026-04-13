@@ -1,21 +1,29 @@
-import { NextResponse } from "next/server";
-import { getTwoLeggedToken } from "@/app/lib/aps-auth";
+import { NextRequest, NextResponse } from "next/server";
+import { COOKIE_ACCESS_TOKEN } from "@/app/lib/aps-auth";
 import { listHubs } from "@/app/lib/acc-admin";
 
 /**
  * GET /api/hubs
  *
- * Returns all ACC accounts (hubs) visible to the service account.
+ * Returns all ACC hubs (accounts) the signed-in user has access to.
+ * Requires a valid 3-legged session (data:read scope).
  *
  * Response 200:
  *   { hubs: Hub[] }
  *
+ * Response 401:
+ *   { error: "Not authenticated" }
+ *
  * Response 500:
  *   { error: string }
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const token = req.cookies.get(COOKIE_ACCESS_TOKEN)?.value;
+  if (!token) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
   try {
-    const token = await getTwoLeggedToken();
     const hubs = await listHubs(token);
     return NextResponse.json({ hubs });
   } catch (err) {
