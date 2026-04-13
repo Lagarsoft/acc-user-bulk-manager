@@ -10,6 +10,7 @@ import OperationQueue from "@/app/components/OperationQueue";
 import DryRunPreview from "@/app/components/DryRunPreview";
 import HubSelector from "@/app/components/HubSelector";
 import ProjectLookup from "@/app/components/ProjectLookup";
+import UserLookup from "@/app/components/UserLookup";
 
 interface Props {
   initialHubs: Hub[];
@@ -179,13 +180,17 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
                 )}
               </div>
 
-              {/* Right sidebar: project lookup + column reference */}
+              {/* Right sidebar: project lookup + user lookup + column reference */}
               <div className="space-y-4">
                 <ProjectLookup
                   projects={projects}
                   loading={projectsLoading}
                   error={projectsError}
                   hubSelected={selectedHubId !== null}
+                />
+
+                <UserLookup
+                  accountId={selectedHubId ? hubs.find((h) => h.id === selectedHubId)?.accountId ?? null : null}
                 />
 
                 <div className="bg-white border border-gray-200 rounded-xl p-5">

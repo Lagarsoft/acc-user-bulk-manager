@@ -95,6 +95,16 @@ export interface UpdateUserPayload {
   role: AccRole;
 }
 
+export interface AccountUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  status: string;
+  companyName: string;
+}
+
 // --------------------------------------------------------------------------
 // Hubs
 // --------------------------------------------------------------------------
@@ -262,6 +272,40 @@ export async function removeProjectUser(
   console.log("[APS] removeProjectUser → AdminClient.removeProjectUser projectId=%s userId=%s", projectId, userId);
   await adminClient.removeProjectUser(projectId, userId, { accessToken: token });
   console.log("[APS] removeProjectUser ✓");
+}
+
+// --------------------------------------------------------------------------
+// Account users
+// --------------------------------------------------------------------------
+
+/**
+ * Searches users in an ACC account by name or email (partial match).
+ * Uses the Account Admin API — requires account:read scope and provisioning.
+ */
+export async function searchAccountUsers(
+  accountId: string,
+  query: string,
+  token: string,
+): Promise<AccountUser[]> {
+  console.log("[APS] searchAccountUsers → AdminClient.searchUsers accountId=%s query=%s", accountId, query);
+  const results = await adminClient.searchUsers(accountId, {
+    name: query,
+    email: query,
+    operator: "OR",
+    partial: true,
+    limit: 20,
+    accessToken: token,
+  });
+  console.log("[APS] searchAccountUsers ✓ got %d result(s)", results.length);
+  return results.map((u) => ({
+    id: u.id ?? "",
+    email: u.email ?? "",
+    firstName: u.first_name ?? "",
+    lastName: u.last_name ?? "",
+    name: u.name ?? `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim(),
+    status: u.status ?? "",
+    companyName: u.company_name ?? "",
+  }));
 }
 
 // --------------------------------------------------------------------------
