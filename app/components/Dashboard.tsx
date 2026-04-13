@@ -7,6 +7,7 @@ import StepNav from "@/app/components/StepNav";
 import WizardLayout from "@/app/components/WizardLayout";
 import CsvUploader from "@/app/components/CsvUploader";
 import OperationQueue from "@/app/components/OperationQueue";
+import DryRunPreview from "@/app/components/DryRunPreview";
 
 interface Props {
   initialHubs: Hub[];
@@ -25,6 +26,7 @@ export default function Dashboard({ initialHubs: _initialHubs, initialError }: P
   const [step, setStep] = useState(0);
   const [queueOps, setQueueOps] = useState<CsvOperationRow[] | null>(null);
   const [error] = useState<string | null>(initialError);
+  const [dryRunHasErrors, setDryRunHasErrors] = useState(false);
 
   const handleCsvResult = useCallback((ops: CsvOperationRow[], _errors: CsvRowError[]) => {
     setQueueOps(ops);
@@ -130,33 +132,20 @@ export default function Dashboard({ initialHubs: _initialHubs, initialError }: P
         </WizardLayout>
       )}
 
-      {/* ── Step 2: Preview Changes (placeholder) ─────────── */}
-      {step === 2 && (
+      {/* ── Step 2: Preview Changes ────────────────────────── */}
+      {step === 2 && queueOps && (
         <WizardLayout
           title="Preview Changes"
-          subtitle="Review what will change in each project before committing. No changes have been made yet."
+          subtitle="Validate and review what will change in each project. No changes have been made yet."
           nextLabel="Confirm &amp; Execute"
+          canAdvance={!dryRunHasErrors}
           onNext={() => setStep(3)}
           onBack={() => setStep(1)}
         >
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-            <span className="text-blue-600 font-bold text-lg">ℹ</span>
-            <div className="text-sm">
-              <p className="font-medium text-blue-900">Dry-run preview</p>
-              <p className="text-blue-700 mt-0.5">
-                The full dry-run diff view is tracked in issue #9 and will be implemented in a
-                future release. Click <strong>Confirm &amp; Execute</strong> to proceed directly
-                to execution.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 bg-gray-50 border border-gray-200 rounded-xl p-4 text-xs text-gray-500">
-            <span className="font-medium text-gray-700">Rollback strategy:</span> Operations are
-            applied per-project in sequence. If a project fails mid-way, already-completed projects
-            are not automatically reversed — use the "Retry Failed" button to re-attempt only
-            failed rows.
-          </div>
+          <DryRunPreview
+            operations={queueOps}
+            onHasErrors={setDryRunHasErrors}
+          />
         </WizardLayout>
       )}
 
