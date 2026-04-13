@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTwoLeggedToken } from "@/app/lib/aps-auth";
+import { COOKIE_ACCESS_TOKEN } from "@/app/lib/aps-auth";
 import { updateProjectUser, removeProjectUser } from "@/app/lib/acc-admin";
 
 /**
@@ -16,6 +16,9 @@ import { updateProjectUser, removeProjectUser } from "@/app/lib/acc-admin";
  * Response 400:
  *   { error: string }
  *
+ * Response 401:
+ *   { error: "Not authenticated" }
+ *
  * Response 500:
  *   { error: string }
  */
@@ -24,6 +27,11 @@ export async function PATCH(
   { params }: { params: Promise<{ projectId: string; userId: string }> },
 ) {
   const { projectId, userId } = await params;
+
+  const token = req.cookies.get(COOKIE_ACCESS_TOKEN)?.value;
+  if (!token) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
 
   let body: { role?: unknown };
   try {
@@ -37,7 +45,6 @@ export async function PATCH(
   }
 
   try {
-    const token = await getTwoLeggedToken();
     const user = await updateProjectUser(projectId, userId, { role: body.role }, token);
     return NextResponse.json({ user });
   } catch (err) {
@@ -53,17 +60,24 @@ export async function PATCH(
  *
  * Response 204: (no body)
  *
+ * Response 401:
+ *   { error: "Not authenticated" }
+ *
  * Response 500:
  *   { error: string }
  */
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ projectId: string; userId: string }> },
 ) {
   const { projectId, userId } = await params;
 
+  const token = req.cookies.get(COOKIE_ACCESS_TOKEN)?.value;
+  if (!token) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
   try {
-    const token = await getTwoLeggedToken();
     await removeProjectUser(projectId, userId, token);
     return new NextResponse(null, { status: 204 });
   } catch (err) {
