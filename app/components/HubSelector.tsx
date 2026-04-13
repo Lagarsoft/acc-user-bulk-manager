@@ -14,7 +14,7 @@ interface Props {
  * and this component will not be shown.
  */
 export default function HubSelector({ hubs, selectedHubId, onSelect }: Props) {
-  if (hubs.length === 0) return null;
+  if (hubs.length <= 1) return null;
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4">
