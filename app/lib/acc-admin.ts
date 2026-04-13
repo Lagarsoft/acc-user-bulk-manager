@@ -287,14 +287,24 @@ export async function searchAccountUsers(
   token: string,
 ): Promise<AccountUser[]> {
   console.log("[APS] searchAccountUsers → AdminClient.searchUsers accountId=%s query=%s", accountId, query);
-  const results = await adminClient.searchUsers(accountId, {
-    name: query,
-    email: query,
-    operator: "OR",
-    partial: true,
-    limit: 20,
-    accessToken: token,
-  });
+  console.log(
+    "[APS] searchAccountUsers curl:\n  curl -s -X GET 'https://developer.api.autodesk.com/construction/admin/v1/accounts/%s/users/search?name=%s&email=%s&operator=OR&partial=true&limit=20' \\\n    -H 'Authorization: Bearer %s'",
+    accountId, encodeURIComponent(query), encodeURIComponent(query), token,
+  );
+  let results;
+  try {
+    results = await adminClient.searchUsers(accountId, {
+      name: query,
+      email: query,
+      operator: "OR",
+      partial: true,
+      limit: 20,
+      accessToken: token,
+    });
+  } catch (err) {
+    console.error("[APS] searchAccountUsers error:", err);
+    throw err;
+  }
   console.log("[APS] searchAccountUsers ✓ got %d result(s)", results.length);
   return results.map((u) => ({
     id: u.id ?? "",
