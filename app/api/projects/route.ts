@@ -28,17 +28,13 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Hub IDs use the "b.{uuid}" format. Strip the prefix to get the
-  // raw account ID expected by the ACC Account Admin API.
-  const accountId = hubId.startsWith("b.") ? hubId.slice(2) : hubId;
-
   const token = req.cookies.get(COOKIE_ACCESS_TOKEN)?.value;
   if (!token) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
   try {
-    const projects = await listProjects(accountId, token);
+    const projects = await listProjects(hubId, token);
     return NextResponse.json({ projects });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

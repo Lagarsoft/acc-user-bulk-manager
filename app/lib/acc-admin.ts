@@ -125,48 +125,45 @@ export async function listHubs(token: string): Promise<Hub[]> {
 // --------------------------------------------------------------------------
 
 /**
- * Lists all projects for the given account, following pagination automatically.
+ * Lists all projects for the given hub using the Data Management API.
+ * Accepts the full hubId with "b." prefix (e.g. "b.{accountId}").
+ * Works with a 3-legged token on any hub type including ADN.
  */
-export async function listProjects(accountId: string, token: string): Promise<Project[]> {
-  console.log("[APS] listProjects → AdminClient.getProjects accountId=%s", accountId);
-  const hubId = `b.${accountId}`;
+export async function listProjects(hubId: string, token: string): Promise<Project[]> {
+  console.log("[APS] listProjects → DataManagement.getHubProjects hubId=%s", hubId);
+  const accountId = hubId.startsWith("b.") ? hubId.slice(2) : hubId;
   const allProjects: Project[] = [];
-  let offset = 0;
+  let pageNumber = 0;
 
   while (true) {
-    console.log("[APS] listProjects page offset=%d", offset);
-    const page = await adminClient.getProjects(accountId, {
-      limit: PAGE_LIMIT,
-      offset,
+    console.log("[APS] listProjects page pageNumber=%d", pageNumber);
+    const page = await dmClient.getHubProjects(hubId, {
+      pageNumber,
+      pageLimit: PAGE_LIMIT,
       accessToken: token,
     });
 
-    for (const p of page.results ?? []) {
+    for (const p of page.data ?? []) {
+      // DM API returns IDs with "b." prefix — strip it for ACC Admin API calls.
+      const rawId = p.id.startsWith("b.") ? p.id.slice(2) : p.id;
       allProjects.push({
-        id: p.id ?? "",
+        id: rawId,
         hubId,
         accountId,
-        name: p.name ?? "",
-        status: normalizeStatus(p.status),
-        createdAt: (p as unknown as Record<string, string>).createdAt ?? "",
-        updatedAt: (p as unknown as Record<string, string>).updatedAt ?? "",
+        name: p.attributes?.name ?? rawId,
+        status: "active",
+        createdAt: "",
+        updatedAt: "",
       });
     }
 
-    const fetched = offset + (page.results?.length ?? 0);
-    console.log("[APS] listProjects page got %d/%d projects", fetched, page.pagination?.totalResults ?? "?");
-    if (fetched >= (page.pagination?.totalResults ?? 0) || !page.results?.length) break;
-    offset = fetched;
+    console.log("[APS] listProjects page got %d projects", page.data?.length ?? 0);
+    if (!page.links?.next?.href) break;
+    pageNumber++;
   }
 
   console.log("[APS] listProjects ✓ total=%d", allProjects.length);
   return allProjects;
-}
-
-function normalizeStatus(raw?: string): Project["status"] {
-  const s = (raw ?? "active").toLowerCase();
-  if (s === "active" || s === "inactive" || s === "suspended") return s;
-  return "active";
 }
 
 // --------------------------------------------------------------------------
