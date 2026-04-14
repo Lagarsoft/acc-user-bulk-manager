@@ -247,7 +247,9 @@ export default function ManualEntryTable({ projects, accountId, onResult }: Prop
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={5} className="py-10 text-center text-sm text-gray-400">
-                  No operations yet — click <strong>Add row</strong> below to start.
+                  {!accountId
+                    ? "Select an account above to start adding operations."
+                    : <>No operations yet — click <strong>Add row</strong> below to start.</>}
                 </td>
               </tr>
             ) : (
@@ -422,7 +424,8 @@ export default function ManualEntryTable({ projects, accountId, onResult }: Prop
                 <button
                   type="button"
                   onClick={addRow}
-                  className="text-xs text-[#0696D7] hover:text-[#0580BC] flex items-center gap-1.5 font-medium transition-colors"
+                  disabled={!accountId}
+                  className="text-xs flex items-center gap-1.5 font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-[#0696D7] hover:text-[#0580BC] disabled:hover:text-[#0696D7]"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
