@@ -421,19 +421,32 @@ export default function ManualEntryTable({ projects, accountId, onResult }: Prop
           <tfoot>
             <tr>
               <td colSpan={5} className="px-4 py-2.5 border-t border-gray-100">
-                <span title={!accountId ? "Select an account above to add rows" : "Add a new operation row"}>
-                <button
-                  type="button"
-                  onClick={addRow}
-                  disabled={!accountId}
-                  className="text-xs flex items-center gap-1.5 font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-[#0696D7] hover:text-[#0580BC] disabled:hover:text-[#0696D7]"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Add row
-                </button>
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    disabled={!accountId}
+                    className="text-xs flex items-center gap-1.5 font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-[#0696D7] hover:text-[#0580BC] disabled:hover:text-[#0696D7]"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Add row
+                  </button>
+
+                  {/* Info tooltip */}
+                  <div className="relative group">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-gray-400 cursor-default" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[200px] rounded-lg bg-gray-900 px-2.5 py-1.5 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
+                      {!accountId
+                        ? "Select an account above to add rows"
+                        : "Add a new operation row to the list"}
+                      <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                    </div>
+                  </div>
+                </div>
               </td>
             </tr>
           </tfoot>
