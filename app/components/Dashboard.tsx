@@ -188,6 +188,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
                 {/* Manual entry table */}
                 {inputMode === "manual" && (
                   <ManualEntryTable
+                    projects={projects}
                     accountId={selectedHubId ? hubs.find((h) => h.id === selectedHubId)?.accountId ?? null : null}
                     onResult={handleManualResult}
                   />

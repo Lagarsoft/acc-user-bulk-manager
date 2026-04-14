@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import type { AccRole, AccountUser } from "@/app/lib/acc-admin";
+import type { Project, AccRole, AccountUser } from "@/app/lib/acc-admin";
 import type { CsvOperationRow, CsvAction } from "@/app/lib/csv-parser";
 
 // --------------------------------------------------------------------------
@@ -33,11 +33,13 @@ interface ManualRow {
   email: string;
   role: AccRole;
   projectId: string;
+  projectName: string;
   firstName: string;
   lastName: string;
 }
 
 interface Props {
+  projects: Project[];
   accountId: string | null;
   onResult: (ops: CsvOperationRow[]) => void;
 }
@@ -48,8 +50,12 @@ interface Props {
 
 let nextRowId = 1;
 
-export default function ManualEntryTable({ accountId, onResult }: Props) {
+export default function ManualEntryTable({ projects, accountId, onResult }: Props) {
   const [rows, setRows] = useState<ManualRow[]>([]);
+
+  // Project picker
+  const [openProjectPicker, setOpenProjectPicker] = useState<number | null>(null);
+  const [projectQuery, setProjectQuery] = useState("");
 
   // User picker
   const [openUserPicker, setOpenUserPicker] = useState<number | null>(null);
@@ -60,10 +66,11 @@ export default function ManualEntryTable({ accountId, onResult }: Props) {
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Close user picker when clicking outside
+  // Close pickers when clicking outside
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpenProjectPicker(null);
         setOpenUserPicker(null);
       }
     }
@@ -76,14 +83,14 @@ export default function ManualEntryTable({ accountId, onResult }: Props) {
     const ops: CsvOperationRow[] = rows
       .filter((r) => {
         if (!EMAIL_RE.test(r.email)) return false;
-        if (!r.projectId.trim()) return false;
+        if (!r.projectId) return false;
         if (r.action !== "remove" && !r.role) return false;
         return true;
       })
       .map((r, i) => ({
         rowNumber: i + 2,
         action: r.action,
-        projectId: r.projectId.trim(),
+        projectId: r.projectId,
         email: r.email,
         role: r.role,
         firstName: r.firstName,
@@ -99,17 +106,42 @@ export default function ManualEntryTable({ accountId, onResult }: Props) {
   function addRow() {
     setRows((prev) => [
       ...prev,
-      { id: nextRowId++, action: "add", email: "", role: "member", projectId: "", firstName: "", lastName: "" },
+      { id: nextRowId++, action: "add", email: "", role: "member", projectId: "", projectName: "", firstName: "", lastName: "" },
     ]);
   }
 
   function removeRow(id: number) {
     setRows((prev) => prev.filter((r) => r.id !== id));
+    if (openProjectPicker === id) setOpenProjectPicker(null);
     if (openUserPicker === id) setOpenUserPicker(null);
   }
 
   function updateRow(id: number, patch: Partial<ManualRow>) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+
+  // --------------------------------------------------------------------------
+  // Project picker
+  // --------------------------------------------------------------------------
+
+  const filteredProjects = projectQuery.trim()
+    ? projects.filter(
+        (p) =>
+          p.name.toLowerCase().includes(projectQuery.toLowerCase()) ||
+          p.id.toLowerCase().includes(projectQuery.toLowerCase()),
+      )
+    : projects;
+
+  function openProjectPickerFor(rowId: number, currentName: string) {
+    setOpenUserPicker(null);
+    setOpenProjectPicker(rowId);
+    setProjectQuery(currentName);
+  }
+
+  function pickProject(rowId: number, project: Project) {
+    updateRow(rowId, { projectId: project.id, projectName: project.name });
+    setOpenProjectPicker(null);
+    setProjectQuery("");
   }
 
   // --------------------------------------------------------------------------
@@ -137,6 +169,7 @@ export default function ManualEntryTable({ accountId, onResult }: Props) {
   );
 
   function openUserPickerFor(rowId: number, currentEmail: string) {
+    setOpenProjectPicker(null);
     setOpenUserPicker(rowId);
     setUserQuery(currentEmail);
     setUserResults([]);
@@ -166,7 +199,7 @@ export default function ManualEntryTable({ accountId, onResult }: Props) {
 
   function rowIsValid(r: ManualRow): boolean {
     if (!EMAIL_RE.test(r.email)) return false;
-    if (!r.projectId.trim()) return false;
+    if (!r.projectId) return false;
     if (r.action !== "remove" && !r.role) return false;
     return true;
   }
@@ -193,12 +226,12 @@ export default function ManualEntryTable({ accountId, onResult }: Props) {
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[580px]">
+        <table className="w-full text-sm min-w-[640px]">
           <colgroup>
             <col className="w-28" />
             <col />
             <col className="w-32" />
-            <col className="w-48" />
+            <col className="w-52" />
             <col className="w-8" />
           </colgroup>
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
@@ -206,7 +239,7 @@ export default function ManualEntryTable({ accountId, onResult }: Props) {
               <th className="py-2 px-4 text-left font-medium">Action</th>
               <th className="py-2 px-4 text-left font-medium">Email</th>
               <th className="py-2 px-4 text-left font-medium">Role</th>
-              <th className="py-2 px-4 text-left font-medium">Project ID</th>
+              <th className="py-2 px-4 text-left font-medium">Project</th>
               <th className="py-2 px-4" />
             </tr>
           </thead>
@@ -316,15 +349,54 @@ export default function ManualEntryTable({ accountId, onResult }: Props) {
                     </select>
                   </td>
 
-                  {/* Project ID — plain paste input */}
+                  {/* Project + search picker */}
                   <td className="px-3 py-2.5">
-                    <input
-                      type="text"
-                      placeholder="Paste project ID…"
-                      value={row.projectId}
-                      onChange={(e) => updateRow(row.id, { projectId: e.target.value })}
-                      className="text-xs border border-gray-300 rounded-md px-2 py-1.5 w-full font-mono focus:outline-none focus:ring-2 focus:ring-[#0696D7]"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder={projects.length === 0 ? "Select an account first…" : "Search by name…"}
+                        value={openProjectPicker === row.id ? projectQuery : row.projectName || row.projectId}
+                        onChange={(e) => setProjectQuery(e.target.value)}
+                        onFocus={() => openProjectPickerFor(row.id, row.projectName)}
+                        disabled={projects.length === 0}
+                        className={`text-xs border rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-[#0696D7] ${
+                          projects.length === 0
+                            ? "bg-gray-50 text-gray-400 cursor-not-allowed border-gray-200"
+                            : "border-gray-300"
+                        }`}
+                      />
+                      {row.projectId && openProjectPicker !== row.id && (
+                        <p className="text-xs text-gray-400 font-mono mt-0.5 truncate px-0.5">
+                          {row.projectId}
+                        </p>
+                      )}
+                      {openProjectPicker === row.id && projects.length > 0 && (
+                        <div className="absolute z-50 top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                          <div className="max-h-44 overflow-y-auto divide-y divide-gray-100">
+                            {filteredProjects.length === 0 ? (
+                              <p className="text-xs text-gray-400 px-3 py-3 text-center">
+                                No projects match &ldquo;{projectQuery}&rdquo;
+                              </p>
+                            ) : (
+                              filteredProjects.slice(0, 50).map((p) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    pickProject(row.id, p);
+                                  }}
+                                  className="w-full text-left px-3 py-2 hover:bg-[#E6F4FB] transition-colors"
+                                >
+                                  <p className="text-xs font-medium text-gray-800 truncate">{p.name}</p>
+                                  <p className="text-xs text-gray-400 font-mono truncate">{p.id}</p>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </td>
 
                   {/* Delete */}

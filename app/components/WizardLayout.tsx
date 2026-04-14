@@ -63,7 +63,7 @@ export default function WizardLayout({
       </div>
 
       {/* Screen content */}
-      <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8">{children}</div>
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-6 sm:py-8">{children}</div>
     </div>
   );
 }
