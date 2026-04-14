@@ -421,6 +421,7 @@ export default function ManualEntryTable({ projects, accountId, onResult }: Prop
           <tfoot>
             <tr>
               <td colSpan={5} className="px-4 py-2.5 border-t border-gray-100">
+                <span title={!accountId ? "Select an account above to add rows" : undefined}>
                 <button
                   type="button"
                   onClick={addRow}
@@ -432,6 +433,7 @@ export default function ManualEntryTable({ projects, accountId, onResult }: Prop
                   </svg>
                   Add row
                 </button>
+                </span>
               </td>
             </tr>
           </tfoot>
