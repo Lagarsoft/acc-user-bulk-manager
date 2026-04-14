@@ -132,13 +132,13 @@
 </section>
 
 <!-- ══════════════════════════════════════════════════════════
-     SCREEN 2 — CSV UPLOAD
+     SCREEN 2 — UPLOAD CSV / BUILD MANUALLY
 ══════════════════════════════════════════════════════════ -->
 <section id="screen-csv" class="screen" aria-label="Upload CSV">
   <div class="mb-4 sm:mb-6 flex items-center justify-between sticky top-[120px] sm:top-[152px] z-30 bg-white shadow-sm border-b border-gray-100 -mx-4 px-4 py-3 sm:py-4">
     <div>
-      <h2 class="text-xl font-semibold">Upload CSV</h2>
-      <p class="text-gray-500 text-sm mt-1 hidden sm:block sm:text-sm">Import a CSV file containing the user operations to perform.</p>
+      <h2 class="text-xl font-semibold">Prepare Operations</h2>
+      <p class="text-gray-500 text-sm mt-1 hidden sm:block">Build your operation list manually or import a CSV file.</p>
     </div>
     <button onclick="showScreen('screen-queue', 1)"
             class="bg-aps-blue hover:bg-aps-hover text-white text-sm font-medium py-2 px-5 rounded-lg flex items-center gap-2 transition-colors">
@@ -147,64 +147,163 @@
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <div class="lg:col-span-2">
-      <div id="drop-zone"
-           class="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer transition-colors hover:border-aps-blue hover:bg-aps-light"
-           ondragover="event.preventDefault(); this.classList.add('drag-over')"
-           ondragleave="this.classList.remove('drag-over')"
-           ondrop="handleDrop(event)"
-           onclick="document.getElementById('csv-file').click()"
-           role="button" aria-label="Drop CSV file here or click to browse" tabindex="0">
-        <i data-lucide="upload-cloud" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
-        <p class="text-sm font-medium text-gray-700">Drop your CSV file here</p>
-        <p class="text-xs text-gray-500 mt-1">or <span class="text-aps-blue underline">click to browse</span></p>
-        <p class="text-xs text-gray-400 mt-3">Accepts .csv files up to 10 MB</p>
-        <input type="file" id="csv-file" accept=".csv" class="hidden" onchange="handleFileSelect(this)" />
+    <!-- ── Left: main content ─── -->
+    <div class="lg:col-span-2 space-y-4">
+
+      <!-- Input mode toggle -->
+      <div class="bg-white border border-gray-200 rounded-xl p-1.5 flex gap-1" role="tablist" aria-label="Input method">
+        <button id="tab-manual" role="tab" aria-selected="true" aria-controls="panel-manual"
+                onclick="switchInputMode('manual')"
+                class="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all bg-aps-blue text-white shadow-sm">
+          <i data-lucide="table-2" class="w-4 h-4"></i> Build Manually
+        </button>
+        <button id="tab-csv" role="tab" aria-selected="false" aria-controls="panel-csv"
+                onclick="switchInputMode('csv')"
+                class="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all text-gray-500 hover:text-gray-700 hover:bg-gray-50">
+          <i data-lucide="upload-cloud" class="w-4 h-4"></i> Upload CSV
+        </button>
       </div>
 
-      <div id="csv-preview" class="hidden mt-4 bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <i data-lucide="file-text" class="w-4 h-4 text-aps-blue"></i>
-            <span class="text-sm font-medium" id="file-name">operations.csv</span>
+      <!-- ── Panel: Manual Entry ── -->
+      <div id="panel-manual" role="tabpanel">
+        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <span class="text-sm font-medium text-gray-700">Operation list</span>
+            <span id="manual-counter" class="text-xs text-gray-400">0 operations</span>
           </div>
-          <div class="flex gap-2 text-xs">
-            <span class="px-2 py-1 rounded-full badge-add">+3 add</span>
-            <span class="px-2 py-1 rounded-full badge-remove">-1 remove</span>
-            <span class="px-2 py-1 rounded-full badge-update">~1 update</span>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[600px]">
+              <colgroup>
+                <col class="w-28" />
+                <col />
+                <col class="w-28" />
+                <col class="w-52" />
+                <col class="w-8" />
+              </colgroup>
+              <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                <tr>
+                  <th class="py-2 px-4 text-left font-medium">Action</th>
+                  <th class="py-2 px-4 text-left font-medium">Email</th>
+                  <th class="py-2 px-4 text-left font-medium">Role</th>
+                  <th class="py-2 px-4 text-left font-medium">Project</th>
+                  <th class="py-2 px-4"></th>
+                </tr>
+              </thead>
+              <tbody id="manual-tbody">
+                <tr id="manual-empty-row">
+                  <td colspan="5" class="py-10 text-center text-sm text-gray-400">
+                    <i data-lucide="inbox" class="w-8 h-8 text-gray-300 mx-auto mb-2"></i>
+                    No operations yet — click <strong>Add row</strong> below to start.
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="5" class="px-4 py-2.5 border-t border-gray-100">
+                    <button onclick="addManualRow()"
+                            class="text-xs text-aps-blue hover:text-aps-hover flex items-center gap-1.5 font-medium transition-colors">
+                      <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Add row
+                    </button>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs">
-            <thead class="bg-gray-50 text-gray-500 uppercase tracking-wide text-xs">
-              <tr>
-                <th class="py-2 px-4 text-left font-medium">Row</th>
-                <th class="py-2 px-4 text-left font-medium">Action</th>
-                <th class="py-2 px-4 text-left font-medium">Email</th>
-                <th class="py-2 px-4 text-left font-medium">Role</th>
-                <th class="py-2 px-4 text-left font-medium">Project ID</th>
-                <th class="py-2 px-4 text-left font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100" id="csv-table-body"></tbody>
-          </table>
         </div>
       </div>
+
+      <!-- ── Panel: CSV Upload ── -->
+      <div id="panel-csv" role="tabpanel" class="hidden">
+        <div id="drop-zone"
+             class="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer transition-colors hover:border-aps-blue hover:bg-aps-light"
+             ondragover="event.preventDefault(); this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="handleDrop(event)"
+             onclick="document.getElementById('csv-file').click()"
+             role="button" aria-label="Drop CSV file here or click to browse" tabindex="0">
+          <i data-lucide="upload-cloud" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
+          <p class="text-sm font-medium text-gray-700">Drop your CSV file here</p>
+          <p class="text-xs text-gray-500 mt-1">or <span class="text-aps-blue underline">click to browse</span></p>
+          <p class="text-xs text-gray-400 mt-3">Accepts .csv files up to 10 MB</p>
+          <input type="file" id="csv-file" accept=".csv" class="hidden" onchange="handleFileSelect(this)" />
+        </div>
+
+        <div id="csv-preview" class="hidden mt-4 bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4 text-aps-blue"></i>
+              <span class="text-sm font-medium" id="file-name">operations.csv</span>
+            </div>
+            <div class="flex gap-2 text-xs">
+              <span class="px-2 py-1 rounded-full badge-add">+3 add</span>
+              <span class="px-2 py-1 rounded-full badge-remove">-1 remove</span>
+              <span class="px-2 py-1 rounded-full badge-update">~1 update</span>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead class="bg-gray-50 text-gray-500 uppercase tracking-wide text-xs">
+                <tr>
+                  <th class="py-2 px-4 text-left font-medium">Row</th>
+                  <th class="py-2 px-4 text-left font-medium">Action</th>
+                  <th class="py-2 px-4 text-left font-medium">Email</th>
+                  <th class="py-2 px-4 text-left font-medium">Role</th>
+                  <th class="py-2 px-4 text-left font-medium">Project ID</th>
+                  <th class="py-2 px-4 text-left font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100" id="csv-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
 
+    <!-- ── Right sidebar ─── -->
     <div class="space-y-4">
+
+      <!-- Find project ID -->
+      <div class="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-3">
+        <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <i data-lucide="building-2" class="w-4 h-4 text-aps-blue"></i> Find project ID
+        </h3>
+        <input type="text" id="sidebar-project-search" placeholder="Search by name…"
+               oninput="filterSidebarProjects(this.value)"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aps-blue focus:border-transparent" />
+        <div id="sidebar-project-list" class="max-h-48 overflow-y-auto divide-y divide-gray-100 -mx-1">
+          <!-- rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Find user email -->
+      <div class="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-3">
+        <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <i data-lucide="user-search" class="w-4 h-4 text-aps-blue"></i> Find user email
+        </h3>
+        <input type="text" id="sidebar-user-search" placeholder="Search by name or email…"
+               oninput="filterSidebarUsers(this.value)"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aps-blue focus:border-transparent" />
+        <div id="sidebar-user-list" class="max-h-48 overflow-y-auto divide-y divide-gray-100 -mx-1">
+          <p class="text-xs text-gray-400 px-1 py-2">Type a name or email to search.</p>
+        </div>
+      </div>
+
+      <!-- Column reference -->
       <div class="bg-white border border-gray-200 rounded-xl p-5">
         <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
           <i data-lucide="table-2" class="w-4 h-4 text-aps-blue"></i> Required columns
         </h3>
         <dl class="space-y-2 text-xs">
-          <div><dt class="font-medium text-gray-700 font-mono">email</dt><dd class="text-gray-500">User's email address (required)</dd></div>
-          <div><dt class="font-medium text-gray-700 font-mono">role</dt><dd class="text-gray-500">ACC role: <code>admin</code>, <code>member</code>, or <code>executive</code></dd></div>
-          <div><dt class="font-medium text-gray-700 font-mono">project_id</dt><dd class="text-gray-500">ACC project identifier (required)</dd></div>
+          <div><dt class="font-medium text-gray-700 font-mono">email</dt><dd class="text-gray-500">User's email address</dd></div>
+          <div><dt class="font-medium text-gray-700 font-mono">role</dt><dd class="text-gray-500">ACC role: <code>admin</code>, <code>member</code>, <code>viewer</code>…</dd></div>
+          <div><dt class="font-medium text-gray-700 font-mono">project_id</dt><dd class="text-gray-500">ACC project UUID</dd></div>
           <div><dt class="font-medium text-gray-700 font-mono">action</dt><dd class="text-gray-500"><code>add</code>, <code>update</code>, or <code>remove</code></dd></div>
         </dl>
         <p class="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-3">Optional: <code class="font-mono">first_name</code>, <code class="font-mono">last_name</code></p>
       </div>
+
+      <!-- Download template -->
       <div class="bg-white border border-gray-200 rounded-xl p-5">
         <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
           <i data-lucide="download" class="w-4 h-4 text-aps-blue"></i> Need a template?
@@ -213,6 +312,7 @@
           <i data-lucide="download" class="w-3.5 h-3.5"></i> Download sample.csv
         </button>
       </div>
+
     </div>
   </div>
 </section>
@@ -812,10 +912,314 @@ function simulateProgress() {
   }, 400);
 }
 
+// ── INPUT MODE TOGGLE ─────────────────────────────────────
+function switchInputMode(mode) {
+  const isManual = mode === 'manual';
+  document.getElementById('panel-manual').classList.toggle('hidden', !isManual);
+  document.getElementById('panel-csv').classList.toggle('hidden', isManual);
+
+  const tabManual = document.getElementById('tab-manual');
+  const tabCsv    = document.getElementById('tab-csv');
+
+  tabManual.setAttribute('aria-selected', String(isManual));
+  tabCsv.setAttribute('aria-selected', String(!isManual));
+
+  const activeClass   = ['bg-aps-blue', 'text-white', 'shadow-sm'];
+  const inactiveClass = ['text-gray-500', 'hover:text-gray-700', 'hover:bg-gray-50'];
+
+  if (isManual) {
+    tabManual.classList.add(...activeClass);
+    tabManual.classList.remove(...inactiveClass);
+    tabCsv.classList.remove(...activeClass);
+    tabCsv.classList.add(...inactiveClass);
+  } else {
+    tabCsv.classList.add(...activeClass);
+    tabCsv.classList.remove(...inactiveClass);
+    tabManual.classList.remove(...activeClass);
+    tabManual.classList.add(...inactiveClass);
+  }
+  lucide.createIcons();
+}
+
+// ── MANUAL ENTRY TABLE ────────────────────────────────────
+const SAMPLE_PROJECTS = [
+  { id: 'res-tower-001',   name: 'Residential Tower A' },
+  { id: 'bridge-proj-001', name: 'Bridge Renovation 2025' },
+  { id: 'metro-proj-001',  name: 'Metro Station West' },
+  { id: 'office-pk-002',   name: 'Office Park Phase 2' },
+  { id: 'highway-12a',     name: 'Highway Extension 12A' },
+  { id: 'hospital-001',    name: 'City Hospital Annex' },
+];
+
+const SAMPLE_USERS = [
+  { name: 'Alice Chen',    email: 'alice@example.com',  company: 'Lagarsoft' },
+  { name: 'Bob Kumar',     email: 'bob@example.com',    company: 'BuildCo' },
+  { name: 'Carol Nguyen',  email: 'carol@example.com',  company: 'Lagarsoft' },
+  { name: 'Diana Park',    email: 'diana@example.com',  company: 'StructCo' },
+  { name: 'Eve Torres',    email: 'eve@example.com',    company: 'BuildCo' },
+  { name: 'Frank Lima',    email: 'frank@example.com',  company: 'StructCo' },
+];
+
+let MANUAL_ROWS = [];
+let nextManualId = 1;
+
+function addManualRow() {
+  const row = { id: nextManualId++, action: 'add', email: '', role: 'Member', projectId: '', projectName: '' };
+  MANUAL_ROWS.push(row);
+  const tbody = document.getElementById('manual-tbody');
+  const emptyRow = document.getElementById('manual-empty-row');
+  if (emptyRow) emptyRow.remove();
+  const tr = buildManualRow(row);
+  tbody.appendChild(tr);
+  updateManualCounter();
+  lucide.createIcons();
+  tr.querySelector('.manual-email-input')?.focus();
+}
+
+function buildManualRow(row) {
+  const tr = document.createElement('tr');
+  tr.setAttribute('data-mid', row.id);
+  tr.className = 'border-b border-gray-100 hover:bg-gray-50/50 align-top';
+  tr.innerHTML = `
+    <td class="px-3 py-2.5">
+      <select onchange="onManualActionChange(${row.id}, this.value)"
+              class="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white w-full cursor-pointer focus:ring-2 focus:ring-aps-blue focus:outline-none">
+        <option value="add"    ${row.action==='add'?'selected':''}>+ Add</option>
+        <option value="update" ${row.action==='update'?'selected':''}>~ Update</option>
+        <option value="remove" ${row.action==='remove'?'selected':''}>− Remove</option>
+      </select>
+    </td>
+    <td class="px-3 py-2.5">
+      <div class="relative">
+        <input type="email" placeholder="user@example.com" value="${row.email}"
+               oninput="filterUserPicker(${row.id}, this.value)"
+               onfocus="openUserPicker(${row.id})"
+               class="manual-email-input text-xs border border-gray-300 rounded-md px-2 py-1.5 w-full focus:ring-2 focus:ring-aps-blue focus:outline-none" />
+        <div id="user-picker-${row.id}"
+             class="hidden absolute z-50 top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+          <div class="max-h-44 overflow-y-auto divide-y divide-gray-100" id="user-picker-list-${row.id}">
+          </div>
+        </div>
+      </div>
+    </td>
+    <td class="px-3 py-2.5">
+      <select id="manual-role-${row.id}"
+              class="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white w-full cursor-pointer focus:ring-2 focus:ring-aps-blue focus:outline-none ${row.action==='remove'?'opacity-40 cursor-not-allowed':''}">
+        <option value="Member"    ${row.role==='Member'?'selected':''}>Member</option>
+        <option value="Admin"     ${row.role==='Admin'?'selected':''}>Admin</option>
+        <option value="Executive" ${row.role==='Executive'?'selected':''}>Executive</option>
+        <option value="Viewer"    ${row.role==='Viewer'?'selected':''}>Viewer</option>
+      </select>
+    </td>
+    <td class="px-3 py-2.5">
+      <div class="relative">
+        <div class="flex gap-1">
+          <input type="text" placeholder="Project ID or name…"
+                 value="${row.projectName || row.projectId}"
+                 oninput="filterProjectPicker(${row.id}, this.value)"
+                 onfocus="openProjectPicker(${row.id})"
+                 class="manual-project-input text-xs border border-gray-300 rounded-md px-2 py-1.5 flex-1 min-w-0 focus:ring-2 focus:ring-aps-blue focus:outline-none" />
+        </div>
+        <div id="project-picker-${row.id}"
+             class="hidden absolute z-50 top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+          <div class="max-h-44 overflow-y-auto divide-y divide-gray-100" id="project-picker-list-${row.id}">
+          </div>
+        </div>
+      </div>
+    </td>
+    <td class="px-3 py-2.5">
+      <button onclick="removeManualRow(${row.id})" aria-label="Remove row"
+              class="text-gray-300 hover:text-red-500 transition-colors p-1 rounded">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+      </button>
+    </td>`;
+  return tr;
+}
+
+function onManualActionChange(id, value) {
+  const roleEl = document.getElementById(`manual-role-${id}`);
+  if (!roleEl) return;
+  const isRemove = value === 'remove';
+  roleEl.disabled = isRemove;
+  roleEl.className = `text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white w-full ${isRemove ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer focus:ring-2 focus:ring-aps-blue focus:outline-none'}`;
+}
+
+function removeManualRow(id) {
+  MANUAL_ROWS = MANUAL_ROWS.filter(r => r.id !== id);
+  document.querySelector(`tr[data-mid="${id}"]`)?.remove();
+  updateManualCounter();
+  if (MANUAL_ROWS.length === 0) {
+    const tbody = document.getElementById('manual-tbody');
+    tbody.innerHTML = `<tr id="manual-empty-row"><td colspan="5" class="py-10 text-center text-sm text-gray-400">
+      <i data-lucide="inbox" class="w-8 h-8 text-gray-300 mx-auto mb-2"></i>
+      No operations yet — click <strong>Add row</strong> below to start.</td></tr>`;
+    lucide.createIcons();
+  }
+}
+
+function updateManualCounter() {
+  const n = MANUAL_ROWS.length;
+  document.getElementById('manual-counter').textContent = `${n} operation${n !== 1 ? 's' : ''}`;
+}
+
+// ── USER PICKER (inline dropdown) ────────────────────────
+function openUserPicker(rowId) {
+  closeAllPickers();
+  filterUserPicker(rowId, document.querySelector(`tr[data-mid="${rowId}"] .manual-email-input`)?.value ?? '');
+  document.getElementById(`user-picker-${rowId}`)?.classList.remove('hidden');
+}
+
+function filterUserPicker(rowId, query) {
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? SAMPLE_USERS.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+    : SAMPLE_USERS;
+  const list = document.getElementById(`user-picker-list-${rowId}`);
+  if (!list) return;
+  if (filtered.length === 0) {
+    list.innerHTML = `<p class="text-xs text-gray-400 px-3 py-3 text-center">No users found</p>`;
+    return;
+  }
+  list.innerHTML = filtered.map(u => `
+    <button onclick="pickUser(${rowId}, '${u.email}')"
+            class="w-full text-left px-3 py-2 hover:bg-aps-light transition-colors">
+      <p class="text-xs font-medium text-gray-800">${u.name}</p>
+      <p class="text-xs text-gray-400">${u.email} · ${u.company}</p>
+    </button>`).join('');
+  document.getElementById(`user-picker-${rowId}`)?.classList.remove('hidden');
+}
+
+function pickUser(rowId, email) {
+  const input = document.querySelector(`tr[data-mid="${rowId}"] .manual-email-input`);
+  if (input) input.value = email;
+  const row = MANUAL_ROWS.find(r => r.id === rowId);
+  if (row) row.email = email;
+  document.getElementById(`user-picker-${rowId}`)?.classList.add('hidden');
+}
+
+// ── PROJECT PICKER (inline dropdown) ─────────────────────
+function openProjectPicker(rowId) {
+  closeAllPickers();
+  filterProjectPicker(rowId, document.querySelector(`tr[data-mid="${rowId}"] .manual-project-input`)?.value ?? '');
+  document.getElementById(`project-picker-${rowId}`)?.classList.remove('hidden');
+}
+
+function filterProjectPicker(rowId, query) {
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? SAMPLE_PROJECTS.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
+    : SAMPLE_PROJECTS;
+  const list = document.getElementById(`project-picker-list-${rowId}`);
+  if (!list) return;
+  if (filtered.length === 0) {
+    list.innerHTML = `<p class="text-xs text-gray-400 px-3 py-3 text-center">No projects found</p>`;
+    return;
+  }
+  list.innerHTML = filtered.map(p => `
+    <button onclick="pickProject(${rowId}, '${p.id}', '${p.name.replace(/'/g,"&#39;")}')"
+            class="w-full text-left px-3 py-2 hover:bg-aps-light transition-colors">
+      <p class="text-xs font-medium text-gray-800 truncate">${p.name}</p>
+      <p class="text-xs text-gray-400 font-mono">${p.id}</p>
+    </button>`).join('');
+  document.getElementById(`project-picker-${rowId}`)?.classList.remove('hidden');
+}
+
+function pickProject(rowId, projectId, projectName) {
+  const input = document.querySelector(`tr[data-mid="${rowId}"] .manual-project-input`);
+  if (input) input.value = projectName;
+  const row = MANUAL_ROWS.find(r => r.id === rowId);
+  if (row) { row.projectId = projectId; row.projectName = projectName; }
+  document.getElementById(`project-picker-${rowId}`)?.classList.add('hidden');
+  toast(`Project set: ${projectName}`);
+}
+
+function closeAllPickers() {
+  document.querySelectorAll('[id^="user-picker-"],[id^="project-picker-"]').forEach(el => {
+    if (!el.id.endsWith('-list')) el.classList.add('hidden');
+  });
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('[data-mid]') && !e.target.closest('[id^="user-picker-"]') && !e.target.closest('[id^="project-picker-"]')) {
+    closeAllPickers();
+  }
+});
+
+// ── SIDEBAR SEARCH ────────────────────────────────────────
+let sidebarProjectCopied = null;
+let sidebarUserCopied    = null;
+
+function filterSidebarProjects(query) {
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? SAMPLE_PROJECTS.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
+    : SAMPLE_PROJECTS;
+  const list = document.getElementById('sidebar-project-list');
+  if (!filtered.length) {
+    list.innerHTML = `<p class="text-xs text-gray-400 px-1 py-3 text-center">No projects match "${query}"</p>`;
+    return;
+  }
+  list.innerHTML = filtered.map(p => `
+    <div class="flex items-center justify-between gap-2 px-1 py-2 hover:bg-gray-50 rounded">
+      <div class="min-w-0">
+        <p class="text-xs font-medium text-gray-800 truncate">${p.name}</p>
+        <p class="text-xs text-gray-400 font-mono truncate">${p.id}</p>
+      </div>
+      <button onclick="copySidebarProjectId('${p.id}')"
+              class="shrink-0 text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:border-aps-blue hover:text-aps-blue transition-colors"
+              id="sp-btn-${p.id}">
+        ${sidebarProjectCopied === p.id ? 'Copied!' : 'Copy ID'}
+      </button>
+    </div>`).join('');
+}
+
+function copySidebarProjectId(id) {
+  navigator.clipboard?.writeText(id);
+  sidebarProjectCopied = id;
+  filterSidebarProjects(document.getElementById('sidebar-project-search').value);
+  setTimeout(() => { sidebarProjectCopied = null; filterSidebarProjects(document.getElementById('sidebar-project-search').value); }, 2000);
+  toast('Project ID copied');
+}
+
+function filterSidebarUsers(query) {
+  const q = query.trim().toLowerCase();
+  const list = document.getElementById('sidebar-user-list');
+  if (!q) {
+    list.innerHTML = `<p class="text-xs text-gray-400 px-1 py-2">Type a name or email to search.</p>`;
+    return;
+  }
+  const filtered = SAMPLE_USERS.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+  if (!filtered.length) {
+    list.innerHTML = `<p class="text-xs text-gray-400 px-1 py-3 text-center">No users match "${query}"</p>`;
+    return;
+  }
+  list.innerHTML = filtered.map(u => `
+    <div class="flex items-center justify-between gap-2 px-1 py-2 hover:bg-gray-50 rounded">
+      <div class="min-w-0">
+        <p class="text-xs font-medium text-gray-800 truncate">${u.name}</p>
+        <p class="text-xs text-gray-400 truncate">${u.email}</p>
+      </div>
+      <button onclick="copySidebarUserEmail('${u.email}')"
+              class="shrink-0 text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:border-aps-blue hover:text-aps-blue transition-colors"
+              id="su-btn-${u.email.replace('@','_')}">
+        ${sidebarUserCopied === u.email ? 'Copied!' : 'Copy'}
+      </button>
+    </div>`).join('');
+}
+
+function copySidebarUserEmail(email) {
+  navigator.clipboard?.writeText(email);
+  sidebarUserCopied = email;
+  filterSidebarUsers(document.getElementById('sidebar-user-search').value);
+  setTimeout(() => { sidebarUserCopied = null; filterSidebarUsers(document.getElementById('sidebar-user-search').value); }, 2000);
+  toast('Email copied');
+}
+
 // ── INIT ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   renderQueue();
   renderExec();
+  filterSidebarProjects(''); // populate sidebar project list on load
   lucide.createIcons();
 });
 
