@@ -224,8 +224,8 @@ export default function ManualEntryTable({ projects, accountId, onResult }: Prop
         </span>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Table — overflow-visible so inline pickers can escape the table bounds */}
+      <div className="overflow-visible">
         <table className="w-full text-sm min-w-[640px]">
           <colgroup>
             <col className="w-28" />
@@ -288,7 +288,7 @@ export default function ManualEntryTable({ projects, accountId, onResult }: Prop
                         }`}
                       />
                       {openUserPicker === row.id && (
-                        <div className="absolute z-50 top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                        <div className="absolute z-50 top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                           {!accountId ? (
                             <p className="text-xs text-gray-400 px-3 py-3">
                               Select an account to search users.
@@ -371,7 +371,7 @@ export default function ManualEntryTable({ projects, accountId, onResult }: Prop
                         </p>
                       )}
                       {openProjectPicker === row.id && projects.length > 0 && (
-                        <div className="absolute z-50 top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                        <div className="absolute z-50 top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                           <div className="max-h-44 overflow-y-auto divide-y divide-gray-100">
                             {filteredProjects.length === 0 ? (
                               <p className="text-xs text-gray-400 px-3 py-3 text-center">
