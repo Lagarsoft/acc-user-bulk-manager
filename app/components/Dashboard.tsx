@@ -129,7 +129,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
           title="Input Data"
           subtitle="Build your operation list manually or import a CSV file."
           nextLabel="Continue to Queue"
-          canAdvance={queueOps !== null && queueOps.length > 0}
+          canAdvance={queueOps !== null && queueOps.length > 0 && (inputMode !== "csv" || selectedHubId !== null)}
           onNext={() => setStep(1)}
           showBack={false}
         >
@@ -145,11 +145,12 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
               hubs={hubs}
               selectedHubId={selectedHubId}
               onSelect={setSelectedHubId}
+              required={inputMode === "csv"}
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left: input mode toggle + active panel */}
-              <div className="lg:col-span-2 space-y-4">
+            <div className="space-y-4">
+              {/* Input mode toggle + active panel */}
+              <div className="space-y-4">
 
                 {/* Pill toggle */}
                 <div className="bg-white border border-gray-200 rounded-xl p-1.5 flex gap-1" role="tablist">
@@ -191,6 +192,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
                     projects={projects}
                     accountId={selectedHubId ? hubs.find((h) => h.id === selectedHubId)?.accountId ?? null : null}
                     onResult={handleManualResult}
+                    initialOps={queueOps ?? undefined}
                   />
                 )}
 
@@ -236,20 +238,20 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
                 )}
               </div>
 
-              {/* Right sidebar */}
-              <div className="space-y-4">
-                <ProjectLookup
-                  projects={projects}
-                  loading={projectsLoading}
-                  error={projectsError}
-                  hubSelected={selectedHubId !== null}
-                />
+              {/* Helper panels — CSV mode only, shown below the main panel */}
+              {inputMode === "csv" && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <ProjectLookup
+                    projects={projects}
+                    loading={projectsLoading}
+                    error={projectsError}
+                    hubSelected={selectedHubId !== null}
+                  />
 
-                <UserLookup
-                  accountId={selectedHubId ? hubs.find((h) => h.id === selectedHubId)?.accountId ?? null : null}
-                />
+                  <UserLookup
+                    accountId={selectedHubId ? hubs.find((h) => h.id === selectedHubId)?.accountId ?? null : null}
+                  />
 
-                {inputMode === "csv" && (
                   <div className="bg-white border border-gray-200 rounded-xl p-5">
                     <h3 className="text-sm font-semibold mb-3">Required columns</h3>
                     <dl className="space-y-2 text-xs">
@@ -271,8 +273,8 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
                       <code className="font-mono">last_name</code>
                     </p>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </WizardLayout>
@@ -285,7 +287,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
           subtitle="Edit, add, or remove operations before running the dry-run preview."
           nextLabel="Preview Changes"
           onNext={() => setStep(2)}
-          onBack={() => setStep(0)}
+          onBack={() => { setInputMode("manual"); setStep(0); }}
         >
           <OperationQueue operations={queueOps} projects={projects} onClear={handleClearQueue} />
         </WizardLayout>
@@ -316,7 +318,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
           showNext={false}
           showBack={false}
         >
-          <OperationQueue operations={queueOps} projects={projects} onClear={handleClearQueue} />
+          <OperationQueue operations={queueOps} projects={projects} onClear={handleClearQueue} autoExecute />
         </WizardLayout>
       )}
     </div>

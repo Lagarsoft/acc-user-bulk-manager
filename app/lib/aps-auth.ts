@@ -13,7 +13,7 @@ import { AuthenticationClient, ResponseType, Scopes } from "@aps_sdk/authenticat
 const authClient = new AuthenticationClient();
 
 const TWO_LEGGED_SCOPES = [Scopes.AccountRead, Scopes.AccountWrite];
-const THREE_LEGGED_SCOPES = [Scopes.DataRead, Scopes.DataWrite, Scopes.AccountRead];
+const THREE_LEGGED_SCOPES = [Scopes.DataRead, Scopes.DataWrite, Scopes.AccountRead, Scopes.AccountWrite];
 
 // --------------------------------------------------------------------------
 // 2-legged (client credentials)

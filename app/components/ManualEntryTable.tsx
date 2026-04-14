@@ -42,6 +42,7 @@ interface Props {
   projects: Project[];
   accountId: string | null;
   onResult: (ops: CsvOperationRow[]) => void;
+  initialOps?: CsvOperationRow[];
 }
 
 // --------------------------------------------------------------------------
@@ -50,8 +51,20 @@ interface Props {
 
 let nextRowId = 1;
 
-export default function ManualEntryTable({ projects, accountId, onResult }: Props) {
-  const [rows, setRows] = useState<ManualRow[]>([]);
+export default function ManualEntryTable({ projects, accountId, onResult, initialOps }: Props) {
+  const [rows, setRows] = useState<ManualRow[]>(() => {
+    if (!initialOps || initialOps.length === 0) return [];
+    return initialOps.map((op) => ({
+      id: nextRowId++,
+      action: op.action,
+      email: op.email,
+      role: op.role as AccRole,
+      projectId: op.projectId,
+      projectName: "",
+      firstName: op.firstName ?? "",
+      lastName: op.lastName ?? "",
+    }));
+  });
 
   // Project picker
   const [openProjectPicker, setOpenProjectPicker] = useState<number | null>(null);
@@ -65,6 +78,19 @@ export default function ManualEntryTable({ projects, accountId, onResult }: Prop
   const userDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Back-fill projectName for rows seeded from initialOps once projects are available
+  useEffect(() => {
+    if (projects.length === 0) return;
+    setRows((prev) =>
+      prev.map((r) =>
+        r.projectId && !r.projectName
+          ? { ...r, projectName: projects.find((p) => p.id === r.projectId)?.name ?? "" }
+          : r,
+      ),
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects]);
 
   // Close pickers when clicking outside
   useEffect(() => {
@@ -226,13 +252,13 @@ export default function ManualEntryTable({ projects, accountId, onResult }: Prop
 
       {/* Table — overflow-visible so inline pickers can escape the table bounds */}
       <div className="overflow-visible">
-        <table className="w-full text-sm min-w-[640px]">
+        <table className="w-full text-sm table-fixed">
           <colgroup>
-            <col className="w-28" />
-            <col className="w-56" />
-            <col className="w-32" />
-            <col className="w-72" />
-            <col className="w-8" />
+            <col className="w-[15%]" />
+            <col className="w-[28%]" />
+            <col className="w-[16%]" />
+            <col className="w-[34%]" />
+            <col className="w-10" />
           </colgroup>
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
             <tr>
@@ -402,7 +428,7 @@ export default function ManualEntryTable({ projects, accountId, onResult }: Prop
                   </td>
 
                   {/* Delete */}
-                  <td className="px-3 py-2.5">
+                  <td className="px-1 py-2.5 text-center">
                     <button
                       type="button"
                       onClick={() => removeRow(row.id)}

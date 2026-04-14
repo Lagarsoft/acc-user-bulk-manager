@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import type { Project } from "@/app/lib/acc-admin";
 import type { CsvOperationRow } from "@/app/lib/csv-parser";
 
@@ -26,6 +26,7 @@ interface Props {
   operations: CsvOperationRow[];
   projects: Project[];
   onClear: () => void;
+  autoExecute?: boolean;
 }
 
 const VALID_ROLES = [
@@ -51,7 +52,7 @@ function toQueueItem(op: CsvOperationRow): QueueItem {
   };
 }
 
-export default function OperationQueue({ operations, projects, onClear }: Props) {
+export default function OperationQueue({ operations, projects, onClear, autoExecute }: Props) {
   const [items, setItems] = useState<QueueItem[]>(() => operations.map(toQueueItem));
   const [running, setRunning] = useState(false);
   const [addingRow, setAddingRow] = useState(false);
@@ -216,6 +217,12 @@ export default function OperationQueue({ operations, projects, onClear }: Props)
     setRunning(false);
   }, []);
 
+  // Auto-start execution when mounted in execution mode (step 3).
+  useEffect(() => {
+    if (autoExecute) executeQueue(items);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleExecuteAll() {
     executeQueue(items);
   }
@@ -363,29 +370,13 @@ export default function OperationQueue({ operations, projects, onClear }: Props)
               Retry failed
             </button>
           )}
-          {running ? (
+          {running && (
             <button
               onClick={handleCancel}
               className="bg-gray-200 text-gray-700 py-1.5 px-3 rounded-md text-sm hover:bg-gray-300"
             >
               Cancel
             </button>
-          ) : (
-            <>
-              <button
-                onClick={onClear}
-                className="text-sm text-gray-500 hover:underline"
-              >
-                Clear
-              </button>
-              <button
-                onClick={handleExecuteAll}
-                disabled={counts.pending === 0}
-                className="bg-aps-blue text-white py-1.5 px-3 rounded-md text-sm font-medium hover:bg-aps-hover disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Execute All
-              </button>
-            </>
           )}
         </div>
       </div>

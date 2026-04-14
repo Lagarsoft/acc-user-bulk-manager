@@ -86,7 +86,8 @@ export async function POST(req: NextRequest) {
     try {
       const users = await listProjectUsers(projectId, token);
       existingEmails = new Set(users.map((u) => u.email.toLowerCase()));
-    } catch {
+    } catch (err) {
+      console.error("[dry-run] listProjectUsers failed for projectId=%s", projectId, err);
       userFetchFailed = true;
     }
 

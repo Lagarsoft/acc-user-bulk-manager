@@ -98,7 +98,7 @@
   </div>
 </nav>
 
-<main class="max-w-6xl mx-auto px-4 py-4 sm:py-8">
+<main class="max-w-5xl mx-auto px-6 sm:px-10 py-4 sm:py-8">
 
 <!-- ══════════════════════════════════════════════════════════
      SCREEN 1 — LOGIN
@@ -135,7 +135,8 @@
      SCREEN 2 — UPLOAD CSV / BUILD MANUALLY
 ══════════════════════════════════════════════════════════ -->
 <section id="screen-csv" class="screen" aria-label="Input Data">
-  <div class="mb-4 sm:mb-6 flex items-center justify-between sticky top-[120px] sm:top-[152px] z-30 bg-white shadow-sm border-b border-gray-100 -mx-4 px-4 py-3 sm:py-4">
+  <div class="max-w-2xl mx-auto">
+  <div class="mb-4 sm:mb-6 flex items-center justify-between">
     <div>
       <h2 class="text-xl font-semibold">Prepare Operations</h2>
       <p class="text-gray-500 text-sm mt-1 hidden sm:block">Build your operation list manually or import a CSV file.</p>
@@ -146,151 +147,155 @@
     </button>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- ── Left: main content ─── -->
-    <div class="lg:col-span-2 space-y-4">
+  <div class="space-y-4">
 
-      <!-- Input mode toggle -->
-      <div class="bg-white border border-gray-200 rounded-xl p-1.5 flex gap-1" role="tablist" aria-label="Input method">
-        <button id="tab-manual" role="tab" aria-selected="true" aria-controls="panel-manual"
-                onclick="switchInputMode('manual')"
-                class="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all bg-aps-blue text-white shadow-sm">
-          <i data-lucide="table-2" class="w-4 h-4"></i> Build Manually
-        </button>
-        <button id="tab-csv" role="tab" aria-selected="false" aria-controls="panel-csv"
-                onclick="switchInputMode('csv')"
-                class="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all text-gray-500 hover:text-gray-700 hover:bg-gray-50">
-          <i data-lucide="upload-cloud" class="w-4 h-4"></i> Input Data
-        </button>
-      </div>
-
-      <!-- ── Panel: Manual Entry ── -->
-      <div id="panel-manual" role="tabpanel">
-        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <span class="text-sm font-medium text-gray-700">Operation list</span>
-            <span id="manual-counter" class="text-xs text-gray-400">0 operations</span>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm min-w-[600px]">
-              <colgroup>
-                <col class="w-28" />
-                <col />
-                <col class="w-28" />
-                <col class="w-52" />
-                <col class="w-8" />
-              </colgroup>
-              <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
-                <tr>
-                  <th class="py-2 px-4 text-left font-medium">Action</th>
-                  <th class="py-2 px-4 text-left font-medium">Email</th>
-                  <th class="py-2 px-4 text-left font-medium">Role</th>
-                  <th class="py-2 px-4 text-left font-medium">Project</th>
-                  <th class="py-2 px-4"></th>
-                </tr>
-              </thead>
-              <tbody id="manual-tbody">
-                <tr id="manual-empty-row">
-                  <td colspan="5" class="py-10 text-center text-sm text-gray-400">
-                    <i data-lucide="inbox" class="w-8 h-8 text-gray-300 mx-auto mb-2"></i>
-                    No operations yet — click <strong>Add row</strong> below to start.
-                  </td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colspan="5" class="px-4 py-2.5 border-t border-gray-100">
-                    <button onclick="addManualRow()"
-                            class="text-xs text-aps-blue hover:text-aps-hover flex items-center gap-1.5 font-medium transition-colors">
-                      <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Add row
-                    </button>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── Panel: CSV Upload ── -->
-      <div id="panel-csv" role="tabpanel" class="hidden">
-        <div id="drop-zone"
-             class="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer transition-colors hover:border-aps-blue hover:bg-aps-light"
-             ondragover="event.preventDefault(); this.classList.add('drag-over')"
-             ondragleave="this.classList.remove('drag-over')"
-             ondrop="handleDrop(event)"
-             onclick="document.getElementById('csv-file').click()"
-             role="button" aria-label="Drop CSV file here or click to browse" tabindex="0">
-          <i data-lucide="upload-cloud" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
-          <p class="text-sm font-medium text-gray-700">Drop your CSV file here</p>
-          <p class="text-xs text-gray-500 mt-1">or <span class="text-aps-blue underline">click to browse</span></p>
-          <p class="text-xs text-gray-400 mt-3">Accepts .csv files up to 10 MB</p>
-          <input type="file" id="csv-file" accept=".csv" class="hidden" onchange="handleFileSelect(this)" />
-        </div>
-
-        <div id="csv-preview" class="hidden mt-4 bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <i data-lucide="file-text" class="w-4 h-4 text-aps-blue"></i>
-              <span class="text-sm font-medium" id="file-name">operations.csv</span>
-            </div>
-            <div class="flex gap-2 text-xs">
-              <span class="px-2 py-1 rounded-full badge-add">+3 add</span>
-              <span class="px-2 py-1 rounded-full badge-remove">-1 remove</span>
-              <span class="px-2 py-1 rounded-full badge-update">~1 update</span>
-            </div>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-xs">
-              <thead class="bg-gray-50 text-gray-500 uppercase tracking-wide text-xs">
-                <tr>
-                  <th class="py-2 px-4 text-left font-medium">Row</th>
-                  <th class="py-2 px-4 text-left font-medium">Action</th>
-                  <th class="py-2 px-4 text-left font-medium">Email</th>
-                  <th class="py-2 px-4 text-left font-medium">Role</th>
-                  <th class="py-2 px-4 text-left font-medium">Project ID</th>
-                  <th class="py-2 px-4 text-left font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100" id="csv-table-body"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
+    <!-- Input mode toggle -->
+    <div class="bg-white border border-gray-200 rounded-xl p-1.5 flex gap-1" role="tablist" aria-label="Input method">
+      <button id="tab-manual" role="tab" aria-selected="true" aria-controls="panel-manual"
+              onclick="switchInputMode('manual')"
+              class="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all bg-aps-blue text-white shadow-sm">
+        <i data-lucide="table-2" class="w-4 h-4"></i> Build Manually
+      </button>
+      <button id="tab-csv" role="tab" aria-selected="false" aria-controls="panel-csv"
+              onclick="switchInputMode('csv')"
+              class="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all text-gray-500 hover:text-gray-700 hover:bg-gray-50">
+        <i data-lucide="upload-cloud" class="w-4 h-4"></i> Upload CSV
+      </button>
     </div>
 
-    <!-- ── Right sidebar ─── -->
-    <div class="space-y-4">
+    <!-- ── Panel: Manual Entry ── -->
+    <div id="panel-manual" role="tabpanel">
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <span class="text-sm font-medium text-gray-700">Operation list</span>
+          <span id="manual-counter" class="text-xs text-gray-400">0 operations</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm min-w-[600px]">
+            <colgroup>
+              <col class="w-28" />
+              <col />
+              <col class="w-28" />
+              <col class="w-52" />
+              <col class="w-8" />
+            </colgroup>
+            <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+              <tr>
+                <th class="py-2 px-4 text-left font-medium">Action</th>
+                <th class="py-2 px-4 text-left font-medium">Email</th>
+                <th class="py-2 px-4 text-left font-medium">Role</th>
+                <th class="py-2 px-4 text-left font-medium">Project</th>
+                <th class="py-2 px-4"></th>
+              </tr>
+            </thead>
+            <tbody id="manual-tbody">
+              <tr id="manual-empty-row">
+                <td colspan="5" class="py-10 text-center text-sm text-gray-400">
+                  <i data-lucide="inbox" class="w-8 h-8 text-gray-300 mx-auto mb-2"></i>
+                  No operations yet — click <strong>Add row</strong> below to start.
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="5" class="px-4 py-2.5 border-t border-gray-100">
+                  <button onclick="addManualRow()"
+                          class="text-xs text-aps-blue hover:text-aps-hover flex items-center gap-1.5 font-medium transition-colors">
+                    <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Add row
+                  </button>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Panel: CSV Upload ── -->
+    <div id="panel-csv" role="tabpanel" class="hidden">
+      <div id="drop-zone"
+           class="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer transition-colors hover:border-aps-blue hover:bg-aps-light"
+           ondragover="event.preventDefault(); this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)"
+           onclick="document.getElementById('csv-file').click()"
+           role="button" aria-label="Drop CSV file here or click to browse" tabindex="0">
+        <i data-lucide="upload-cloud" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
+        <p class="text-sm font-medium text-gray-700">Drop your CSV file here</p>
+        <p class="text-xs text-gray-500 mt-1">or <span class="text-aps-blue underline">click to browse</span></p>
+        <p class="text-xs text-gray-400 mt-3">Accepts .csv files up to 10 MB</p>
+        <input type="file" id="csv-file" accept=".csv" class="hidden" onchange="handleFileSelect(this)" />
+      </div>
+
+      <div id="csv-preview" class="hidden mt-4 bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="file-text" class="w-4 h-4 text-aps-blue"></i>
+            <span class="text-sm font-medium" id="file-name">operations.csv</span>
+          </div>
+          <div class="flex gap-2 text-xs">
+            <span class="px-2 py-1 rounded-full badge-add">+3 add</span>
+            <span class="px-2 py-1 rounded-full badge-remove">-1 remove</span>
+            <span class="px-2 py-1 rounded-full badge-update">~1 update</span>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead class="bg-gray-50 text-gray-500 uppercase tracking-wide text-xs">
+              <tr>
+                <th class="py-2 px-4 text-left font-medium">Row</th>
+                <th class="py-2 px-4 text-left font-medium">Action</th>
+                <th class="py-2 px-4 text-left font-medium">Email</th>
+                <th class="py-2 px-4 text-left font-medium">Role</th>
+                <th class="py-2 px-4 text-left font-medium">Project ID</th>
+                <th class="py-2 px-4 text-left font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100" id="csv-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CSV helper strip (shown only in CSV mode) ── -->
+    <div id="csv-helper-strip" class="hidden">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
       <!-- Find project ID -->
-      <div class="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-3">
+      <div class="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
         <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
           <i data-lucide="building-2" class="w-4 h-4 text-aps-blue"></i> Find project ID
         </h3>
         <input type="text" id="sidebar-project-search" placeholder="Search by name…"
                oninput="filterSidebarProjects(this.value)"
                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aps-blue focus:border-transparent" />
-        <div id="sidebar-project-list" class="max-h-48 overflow-y-auto divide-y divide-gray-100 -mx-1">
+        <div id="sidebar-project-list" class="max-h-40 overflow-y-auto divide-y divide-gray-100 -mx-1">
           <!-- rendered by JS -->
         </div>
       </div>
 
       <!-- Find user email -->
-      <div class="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-3">
+      <div class="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
         <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
           <i data-lucide="user-search" class="w-4 h-4 text-aps-blue"></i> Find user email
         </h3>
         <input type="text" id="sidebar-user-search" placeholder="Search by name or email…"
                oninput="filterSidebarUsers(this.value)"
                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aps-blue focus:border-transparent" />
-        <div id="sidebar-user-list" class="max-h-48 overflow-y-auto divide-y divide-gray-100 -mx-1">
+        <div id="sidebar-user-list" class="max-h-40 overflow-y-auto divide-y divide-gray-100 -mx-1">
           <p class="text-xs text-gray-400 px-1 py-2">Type a name or email to search.</p>
         </div>
       </div>
 
+    </div>
+    </div>
+
+    <!-- ── CSV meta strip (shown only in CSV mode) ── -->
+    <div id="csv-meta-strip" class="hidden">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
       <!-- Column reference -->
-      <div class="bg-white border border-gray-200 rounded-xl p-5">
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
         <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
           <i data-lucide="table-2" class="w-4 h-4 text-aps-blue"></i> Required columns
         </h3>
@@ -304,16 +309,22 @@
       </div>
 
       <!-- Download template -->
-      <div class="bg-white border border-gray-200 rounded-xl p-5">
-        <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
-          <i data-lucide="download" class="w-4 h-4 text-aps-blue"></i> Need a template?
-        </h3>
+      <div class="bg-white border border-gray-200 rounded-xl p-4 flex flex-col justify-between">
+        <div>
+          <h3 class="text-sm font-semibold mb-1 flex items-center gap-2">
+            <i data-lucide="download" class="w-4 h-4 text-aps-blue"></i> Need a template?
+          </h3>
+          <p class="text-xs text-gray-500 mb-4">Download a pre-formatted sample CSV to get started quickly.</p>
+        </div>
         <button class="w-full text-sm text-aps-blue border border-aps-blue rounded-lg py-2 px-4 hover:bg-aps-light transition-colors flex items-center justify-center gap-2">
           <i data-lucide="download" class="w-3.5 h-3.5"></i> Download sample.csv
         </button>
       </div>
 
     </div>
+    </div>
+
+  </div>
   </div>
 </section>
 
@@ -917,6 +928,12 @@ function switchInputMode(mode) {
   const isManual = mode === 'manual';
   document.getElementById('panel-manual').classList.toggle('hidden', !isManual);
   document.getElementById('panel-csv').classList.toggle('hidden', isManual);
+
+  // Show helper strips only in CSV mode
+  const helperStrip = document.getElementById('csv-helper-strip');
+  const metaStrip   = document.getElementById('csv-meta-strip');
+  helperStrip.classList.toggle('hidden', isManual);
+  metaStrip.classList.toggle('hidden', isManual);
 
   const tabManual = document.getElementById('tab-manual');
   const tabCsv    = document.getElementById('tab-csv');

@@ -33,7 +33,8 @@ export default function WizardLayout({
   return (
     <div>
       {/* Sticky section header */}
-      <div className="sticky top-[57px] sm:top-[calc(57px+73px)] z-30 bg-white shadow-sm border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-4">
+      <div className="sticky top-[57px] sm:top-[calc(57px+73px)] z-30 bg-white shadow-sm border-b border-gray-100">
+      <div className="max-w-screen-xl mx-auto px-6 sm:px-10 py-3 sm:py-4 flex items-center justify-between gap-4">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold truncate">{title}</h2>
           {subtitle && (
@@ -61,9 +62,10 @@ export default function WizardLayout({
           )}
         </div>
       </div>
+      </div>
 
       {/* Screen content */}
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-6 sm:py-8">{children}</div>
+      <div className="max-w-screen-xl mx-auto px-6 sm:px-10 py-6 sm:py-8">{children}</div>
     </div>
   );
 }
