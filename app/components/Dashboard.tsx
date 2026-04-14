@@ -11,6 +11,7 @@ import DryRunPreview from "@/app/components/DryRunPreview";
 import HubSelector from "@/app/components/HubSelector";
 import ProjectLookup from "@/app/components/ProjectLookup";
 import UserLookup from "@/app/components/UserLookup";
+import ManualEntryTable from "@/app/components/ManualEntryTable";
 
 interface Props {
   initialHubs: Hub[];
@@ -30,6 +31,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
   const [queueOps, setQueueOps] = useState<CsvOperationRow[] | null>(null);
   const [error] = useState<string | null>(initialError);
   const [dryRunHasErrors, setDryRunHasErrors] = useState(false);
+  const [inputMode, setInputMode] = useState<"manual" | "csv">("manual");
 
   const [hubs, setHubs] = useState<Hub[]>(initialHubs);
 
@@ -103,6 +105,15 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
     setQueueOps(ops);
   }, []);
 
+  const handleManualResult = useCallback((ops: CsvOperationRow[]) => {
+    setQueueOps(ops.length > 0 ? ops : null);
+  }, []);
+
+  function switchInputMode(mode: "manual" | "csv") {
+    setInputMode(mode);
+    setQueueOps(null);
+  }
+
   const handleClearQueue = useCallback(() => {
     setQueueOps(null);
     setStep(0);
@@ -116,7 +127,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
       {step === 0 && (
         <WizardLayout
           title="Input Data"
-          subtitle="Select your account, find project IDs, then upload your CSV."
+          subtitle="Build your operation list manually or import a CSV file."
           nextLabel="Continue to Queue"
           canAdvance={queueOps !== null && queueOps.length > 0}
           onNext={() => setStep(1)}
@@ -137,13 +148,61 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left: CSV uploader */}
+              {/* Left: input mode toggle + active panel */}
               <div className="lg:col-span-2 space-y-4">
-                <div className="bg-white border border-gray-200 rounded-xl p-6">
-                  <CsvUploader onResult={handleCsvResult} />
+
+                {/* Pill toggle */}
+                <div className="bg-white border border-gray-200 rounded-xl p-1.5 flex gap-1" role="tablist">
+                  <button
+                    role="tab"
+                    aria-selected={inputMode === "manual"}
+                    onClick={() => switchInputMode("manual")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                      inputMode === "manual"
+                        ? "bg-[#0696D7] text-white shadow-sm"
+                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                    </svg>
+                    Build Manually
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={inputMode === "csv"}
+                    onClick={() => switchInputMode("csv")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                      inputMode === "csv"
+                        ? "bg-[#0696D7] text-white shadow-sm"
+                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    </svg>
+                    Upload CSV
+                  </button>
                 </div>
 
-                {queueOps && queueOps.length > 0 && (
+                {/* Manual entry table */}
+                {inputMode === "manual" && (
+                  <ManualEntryTable
+                    projects={projects}
+                    accountId={selectedHubId ? hubs.find((h) => h.id === selectedHubId)?.accountId ?? null : null}
+                    onResult={handleManualResult}
+                  />
+                )}
+
+                {/* CSV uploader */}
+                {inputMode === "csv" && (
+                  <div className="bg-white border border-gray-200 rounded-xl p-6">
+                    <CsvUploader onResult={handleCsvResult} />
+                  </div>
+                )}
+
+                {/* Operations ready summary */}
+                {queueOps && queueOps.length > 0 && inputMode === "csv" && (
                   <div className="bg-white border border-gray-200 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-sm font-medium text-gray-700">
@@ -167,10 +226,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
                         };
                         const labels = { add: "+", update: "~", remove: "−" };
                         return (
-                          <span
-                            key={action}
-                            className={`px-2 py-1 rounded-full ${styles[action]}`}
-                          >
+                          <span key={action} className={`px-2 py-1 rounded-full ${styles[action]}`}>
                             {labels[action]} {count} {action}
                           </span>
                         );
@@ -180,7 +236,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
                 )}
               </div>
 
-              {/* Right sidebar: project lookup + user lookup + column reference */}
+              {/* Right sidebar */}
               <div className="space-y-4">
                 <ProjectLookup
                   projects={projects}
@@ -193,27 +249,29 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
                   accountId={selectedHubId ? hubs.find((h) => h.id === selectedHubId)?.accountId ?? null : null}
                 />
 
-                <div className="bg-white border border-gray-200 rounded-xl p-5">
-                  <h3 className="text-sm font-semibold mb-3">Required columns</h3>
-                  <dl className="space-y-2 text-xs">
-                    <div>
-                      <dt className="font-medium text-gray-700 font-mono">email</dt>
-                      <dd className="text-gray-500">User email address</dd>
-                    </div>
-                    <div>
-                      <dt className="font-medium text-gray-700 font-mono">role</dt>
-                      <dd className="text-gray-500">ACC role: admin, member, viewer…</dd>
-                    </div>
-                    <div>
-                      <dt className="font-medium text-gray-700 font-mono">project_id</dt>
-                      <dd className="text-gray-500">ACC project UUID</dd>
-                    </div>
-                  </dl>
-                  <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-3">
-                    Optional: <code className="font-mono">first_name</code>,{" "}
-                    <code className="font-mono">last_name</code>
-                  </p>
-                </div>
+                {inputMode === "csv" && (
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <h3 className="text-sm font-semibold mb-3">Required columns</h3>
+                    <dl className="space-y-2 text-xs">
+                      <div>
+                        <dt className="font-medium text-gray-700 font-mono">email</dt>
+                        <dd className="text-gray-500">User email address</dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-gray-700 font-mono">role</dt>
+                        <dd className="text-gray-500">ACC role: admin, member, viewer…</dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-gray-700 font-mono">project_id</dt>
+                        <dd className="text-gray-500">ACC project UUID</dd>
+                      </div>
+                    </dl>
+                    <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-3">
+                      Optional: <code className="font-mono">first_name</code>,{" "}
+                      <code className="font-mono">last_name</code>
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
