@@ -229,9 +229,9 @@ export default function ManualEntryTable({ projects, accountId, onResult }: Prop
         <table className="w-full text-sm min-w-[640px]">
           <colgroup>
             <col className="w-28" />
-            <col />
+            <col className="w-44" />
             <col className="w-32" />
-            <col className="w-52" />
+            <col />
             <col className="w-8" />
           </colgroup>
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
