@@ -20,7 +20,7 @@ interface Props {
 /**
  * Dashboard — orchestrates the 4-step bulk-import wizard.
  *
- * Step 0: Upload CSV      — hub selector, project lookup, CSV upload
+ * Step 0: Input Data      — hub selector, project lookup, CSV upload
  * Step 1: Bulk Queue      — review / edit operations; advance to dry-run
  * Step 2: Preview Changes — dry-run diff and validation
  * Step 3: Execution       — run operations
@@ -112,10 +112,10 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
     <div className="min-h-screen bg-gray-50">
       <StepNav currentStep={step} />
 
-      {/* ── Step 0: Upload CSV ─────────────────────────────── */}
+      {/* ── Step 0: Input Data ─────────────────────────────── */}
       {step === 0 && (
         <WizardLayout
-          title="Upload CSV"
+          title="Input Data"
           subtitle="Select your account, find project IDs, then upload your CSV."
           nextLabel="Continue to Queue"
           canAdvance={queueOps !== null && queueOps.length > 0}

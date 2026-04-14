@@ -1,6 +1,6 @@
 "use client";
 
-const STEPS = ["Upload CSV", "Bulk Queue", "Preview Changes", "Execution"];
+const STEPS = ["Input Data", "Bulk Queue", "Preview Changes", "Execution"];
 
 interface Props {
   currentStep: number; // 0-indexed

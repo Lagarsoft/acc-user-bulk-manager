@@ -69,8 +69,8 @@
     <div class="flex items-center">
 
       <div class="flex flex-col items-center">
-        <button onclick="showScreen('screen-csv', 0)" class="step-btn w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 flex items-center justify-center text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-aps-blue focus:ring-offset-2" aria-label="Step 1: Upload CSV">1</button>
-        <span class="step-label text-xs mt-2 whitespace-nowrap hidden sm:block sm:text-sm">Upload CSV</span>
+        <button onclick="showScreen('screen-csv', 0)" class="step-btn w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 flex items-center justify-center text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-aps-blue focus:ring-offset-2" aria-label="Step 1: Input Data">1</button>
+        <span class="step-label text-xs mt-2 whitespace-nowrap hidden sm:block sm:text-sm">Input Data</span>
       </div>
 
       <div class="step-line w-8 sm:w-20 h-0.5 bg-gray-200 mb-0 sm:mb-5 mx-1"></div>
@@ -134,7 +134,7 @@
 <!-- ══════════════════════════════════════════════════════════
      SCREEN 2 — UPLOAD CSV / BUILD MANUALLY
 ══════════════════════════════════════════════════════════ -->
-<section id="screen-csv" class="screen" aria-label="Upload CSV">
+<section id="screen-csv" class="screen" aria-label="Input Data">
   <div class="mb-4 sm:mb-6 flex items-center justify-between sticky top-[120px] sm:top-[152px] z-30 bg-white shadow-sm border-b border-gray-100 -mx-4 px-4 py-3 sm:py-4">
     <div>
       <h2 class="text-xl font-semibold">Prepare Operations</h2>
@@ -160,7 +160,7 @@
         <button id="tab-csv" role="tab" aria-selected="false" aria-controls="panel-csv"
                 onclick="switchInputMode('csv')"
                 class="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all text-gray-500 hover:text-gray-700 hover:bg-gray-50">
-          <i data-lucide="upload-cloud" class="w-4 h-4"></i> Upload CSV
+          <i data-lucide="upload-cloud" class="w-4 h-4"></i> Input Data
         </button>
       </div>
 
