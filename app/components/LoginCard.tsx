@@ -8,25 +8,22 @@
 export default function LoginCard() {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-10 text-center max-w-md w-full">
-      {/* Autodesk "A" logo */}
-      <svg
-        className="mx-auto mb-6"
-        width="52"
-        height="52"
-        viewBox="0 0 40 40"
-        fill="none"
-        aria-hidden="true"
+      {/* Lagarsoft logo */}
+      <a
+        href="https://www.lagarsoft.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-block mx-auto mb-6"
+        aria-label="Lagarsoft"
       >
-        <rect width="40" height="40" rx="8" fill="#0696D7" />
-        <path
-          d="M8 30 L20 10 L32 30"
-          stroke="white"
-          strokeWidth="3.5"
-          strokeLinejoin="round"
-          fill="none"
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/lagarsoft-logo-square.svg"
+          alt="Lagarsoft"
+          width="48"
+          height="40"
         />
-        <path d="M13 22 L27 22" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
-      </svg>
+      </a>
 
       <h1 className="text-2xl font-semibold mb-1">Welcome back</h1>
       <p className="text-gray-500 text-sm mb-8">
@@ -63,6 +60,19 @@ export default function LoginCard() {
       <p className="text-xs text-gray-400 mt-6">
         Your credentials are never stored. Authentication is handled by Autodesk Platform Services
         (APS) OAuth&nbsp;2.0.
+      </p>
+
+      <p className="text-xs text-gray-400 mt-4">
+        Built by{" "}
+        <a
+          href="https://www.lagarsoft.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-gray-600 transition-colors"
+        >
+          Lagarsoft
+        </a>
+        {" "}— Autodesk Certified Partner
       </p>
     </div>
   );

@@ -39,9 +39,9 @@ interface ManualRow {
 }
 
 interface Props {
-  projects: Project[];
   accountId: string | null;
   onResult: (ops: CsvOperationRow[]) => void;
+  onProjectCached?: (project: Project) => void;
   initialOps?: CsvOperationRow[];
 }
 
@@ -51,7 +51,7 @@ interface Props {
 
 let nextRowId = 1;
 
-export default function ManualEntryTable({ projects, accountId, onResult, initialOps }: Props) {
+export default function ManualEntryTable({ accountId, onResult, onProjectCached, initialOps }: Props) {
   const [rows, setRows] = useState<ManualRow[]>(() => {
     if (!initialOps || initialOps.length === 0) return [];
     return initialOps.map((op) => ({
@@ -69,6 +69,9 @@ export default function ManualEntryTable({ projects, accountId, onResult, initia
   // Project picker
   const [openProjectPicker, setOpenProjectPicker] = useState<number | null>(null);
   const [projectQuery, setProjectQuery] = useState("");
+  const [projectResults, setProjectResults] = useState<Project[]>([]);
+  const [projectLoading, setProjectLoading] = useState(false);
+  const projectDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // User picker
   const [openUserPicker, setOpenUserPicker] = useState<number | null>(null);
@@ -78,19 +81,6 @@ export default function ManualEntryTable({ projects, accountId, onResult, initia
   const userDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Back-fill projectName for rows seeded from initialOps once projects are available
-  useEffect(() => {
-    if (projects.length === 0) return;
-    setRows((prev) =>
-      prev.map((r) =>
-        r.projectId && !r.projectName
-          ? { ...r, projectName: projects.find((p) => p.id === r.projectId)?.name ?? "" }
-          : r,
-      ),
-    );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projects]);
 
   // Close pickers when clicking outside
   useEffect(() => {
@@ -117,6 +107,7 @@ export default function ManualEntryTable({ projects, accountId, onResult, initia
         rowNumber: i + 2,
         action: r.action,
         projectId: r.projectId,
+        projectName: r.projectName || undefined,
         email: r.email,
         role: r.role,
         firstName: r.firstName,
@@ -150,24 +141,51 @@ export default function ManualEntryTable({ projects, accountId, onResult, initia
   // Project picker
   // --------------------------------------------------------------------------
 
-  const filteredProjects = projectQuery.trim()
-    ? projects.filter(
-        (p) =>
-          p.name.toLowerCase().includes(projectQuery.toLowerCase()) ||
-          p.id.toLowerCase().includes(projectQuery.toLowerCase()),
-      )
-    : projects;
+  const fetchProjects = useCallback(
+    (query: string) => {
+      if (!accountId || query.trim().length < 2) {
+        setProjectResults([]);
+        setProjectLoading(false);
+        return;
+      }
+      const hubId = `b.${accountId}`;
+      setProjectLoading(true);
+      fetch(`/api/projects?hubId=${encodeURIComponent(hubId)}&q=${encodeURIComponent(query.trim())}`)
+        .then(async (res) => {
+          const data: { projects?: Project[]; error?: string } = await res.json();
+          if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+          setProjectResults(data.projects ?? []);
+        })
+        .catch(() => setProjectResults([]))
+        .finally(() => setProjectLoading(false));
+    },
+    [accountId],
+  );
 
   function openProjectPickerFor(rowId: number, currentName: string) {
     setOpenUserPicker(null);
     setOpenProjectPicker(rowId);
     setProjectQuery(currentName);
+    setProjectResults([]);
+    if (currentName.trim().length >= 2) {
+      if (projectDebounceRef.current) clearTimeout(projectDebounceRef.current);
+      projectDebounceRef.current = setTimeout(() => fetchProjects(currentName), 0);
+    }
+  }
+
+  function handleProjectQueryChange(value: string) {
+    setProjectQuery(value);
+    setProjectResults([]);
+    if (projectDebounceRef.current) clearTimeout(projectDebounceRef.current);
+    projectDebounceRef.current = setTimeout(() => fetchProjects(value), 400);
   }
 
   function pickProject(rowId: number, project: Project) {
     updateRow(rowId, { projectId: project.id, projectName: project.name });
     setOpenProjectPicker(null);
     setProjectQuery("");
+    setProjectResults([]);
+    onProjectCached?.(project);
   }
 
   // --------------------------------------------------------------------------
@@ -382,13 +400,14 @@ export default function ManualEntryTable({ projects, accountId, onResult, initia
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder={projects.length === 0 ? "Select an account first…" : "Search by name…"}
+                        placeholder={!accountId ? "Select an account first…" : "Search by name…"}
                         value={openProjectPicker === row.id ? projectQuery : row.projectName || row.projectId}
-                        onChange={(e) => setProjectQuery(e.target.value)}
+                        onChange={(e) => handleProjectQueryChange(e.target.value)}
                         onFocus={() => openProjectPickerFor(row.id, row.projectName)}
-                        disabled={projects.length === 0}
+                        onClick={() => { if (openProjectPicker !== row.id) openProjectPickerFor(row.id, row.projectName); }}
+                        disabled={!accountId}
                         className={`text-xs border rounded-md px-2 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-[#0696D7] ${
-                          projects.length === 0
+                          !accountId
                             ? "bg-gray-50 text-gray-400 cursor-not-allowed border-gray-200"
                             : "border-gray-300"
                         }`}
@@ -398,15 +417,28 @@ export default function ManualEntryTable({ projects, accountId, onResult, initia
                           {row.projectId}
                         </p>
                       )}
-                      {openProjectPicker === row.id && projects.length > 0 && (
+                      {openProjectPicker === row.id && (
                         <div className="absolute z-50 top-full left-0 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-                          <div className="max-h-44 overflow-y-auto divide-y divide-gray-100">
-                            {filteredProjects.length === 0 ? (
-                              <p className="text-xs text-gray-400 px-3 py-3 text-center">
-                                No projects match &ldquo;{projectQuery}&rdquo;
-                              </p>
-                            ) : (
-                              filteredProjects.slice(0, 50).map((p) => (
+                          {!accountId ? (
+                            <p className="text-xs text-gray-400 px-3 py-3">
+                              Select an account to search projects.
+                            </p>
+                          ) : projectQuery.trim().length < 2 ? (
+                            <p className="text-xs text-gray-400 px-3 py-3">
+                              Type at least 2 characters to search.
+                            </p>
+                          ) : projectLoading ? (
+                            <div className="flex items-center gap-2 px-3 py-3 text-xs text-gray-400">
+                              <span className="w-3 h-3 border-2 border-[#0696D7] border-t-transparent rounded-full animate-spin" />
+                              Searching…
+                            </div>
+                          ) : projectResults.length === 0 ? (
+                            <p className="text-xs text-gray-400 px-3 py-3 text-center">
+                              No projects match &ldquo;{projectQuery}&rdquo;
+                            </p>
+                          ) : (
+                            <div className="max-h-44 overflow-y-auto divide-y divide-gray-100">
+                              {projectResults.map((p) => (
                                 <button
                                   key={p.id}
                                   type="button"
@@ -419,9 +451,9 @@ export default function ManualEntryTable({ projects, accountId, onResult, initia
                                   <p className="text-xs font-medium text-gray-800 truncate">{p.name}</p>
                                   <p className="text-xs text-gray-400 font-mono truncate">{p.id}</p>
                                 </button>
-                              ))
-                            )}
-                          </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

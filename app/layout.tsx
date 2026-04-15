@@ -2,12 +2,25 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
+import Footer from "./components/Footer";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ACC User Bulk Manager",
-  description: "Bulk-add, remove, or update user permissions across multiple ACC projects via CSV.",
+  title: "ACC User Bulk Manager by Lagarsoft",
+  description:
+    "Bulk-add, remove, or update user permissions across multiple ACC projects via CSV. Built by Lagarsoft — Autodesk Certified Partner.",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+  },
+  openGraph: {
+    title: "ACC User Bulk Manager",
+    description:
+      "Bulk-add, remove, or update user permissions across multiple ACC projects via CSV.",
+    siteName: "Lagarsoft",
+    url: "https://www.lagarsoft.com",
+  },
 };
 
 export default async function RootLayout({
@@ -20,20 +33,26 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
-      <body className={inter.className}>
-        {/* Sticky APS dark header — visible on all pages */}
-        <header className="bg-aps-dark text-white h-14 flex items-center px-6 gap-4 shadow-md sticky top-0 z-50">
-          <svg width="28" height="28" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-            <rect width="40" height="40" rx="6" fill="#0696D7" />
-            <path
-              d="M8 30 L20 10 L32 30"
-              stroke="white"
-              strokeWidth="3.5"
-              strokeLinejoin="round"
-              fill="none"
+      <body className={`${inter.className} h-screen flex flex-col overflow-hidden`}>
+        {/* Sticky header */}
+        <header className="bg-aps-dark text-white h-14 flex items-center px-6 gap-3 shadow-md sticky top-0 z-50">
+          <a
+            href="https://www.lagarsoft.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center shrink-0"
+            aria-label="Lagarsoft"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/lagarsoft-logo-square.svg"
+              alt="Lagarsoft"
+              width={28}
+              height={23}
+              className="brightness-0 invert"
             />
-            <path d="M13 22 L27 22" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
-          </svg>
+          </a>
+          <div className="w-px h-5 bg-white/20 shrink-0" />
           <span className="font-semibold text-base tracking-tight">ACC User Bulk Manager</span>
 
           {isAuthenticated && (
@@ -50,7 +69,9 @@ export default async function RootLayout({
           )}
         </header>
 
-        {children}
+        <main className="flex-1 overflow-auto">{children}</main>
+
+        <Footer />
       </body>
     </html>
   );

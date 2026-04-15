@@ -18,6 +18,15 @@ interface Props {
   initialError: string | null;
 }
 
+/** Keeps only ACC / BIM360 / Forma hubs. Falls back to all hubs if none match. */
+function filterRelevantHubs(hubs: Hub[]): Hub[] {
+  const relevant = hubs.filter((h) => {
+    const t = h.type?.toLowerCase() ?? "";
+    return t.includes("bim360") || t.includes("acc") || t.includes("forma");
+  });
+  return relevant.length > 0 ? relevant : hubs;
+}
+
 /**
  * Dashboard — orchestrates the 4-step bulk-import wizard.
  *
@@ -49,56 +58,30 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Hub selection — auto-select when only one hub is available.
-  const [selectedHubId, setSelectedHubId] = useState<string | null>(
-    initialHubs.length === 1 ? initialHubs[0].id : null,
-  );
+  // Hub selection — auto-select when only one relevant hub is available.
+  const [selectedHubId, setSelectedHubId] = useState<string | null>(() => {
+    const relevant = filterRelevantHubs(initialHubs);
+    return relevant.length === 1 ? relevant[0].id : null;
+  });
 
-  // When hubs load client-side and there's only one, auto-select it.
+  // When hubs load client-side (SSR returned none), apply the same logic.
   useEffect(() => {
     if (selectedHubId) return;
-    if (hubs.length === 1) setSelectedHubId(hubs[0].id);
+    const relevant = filterRelevantHubs(hubs);
+    if (relevant.length === 1) setSelectedHubId(relevant[0].id);
   }, [hubs, selectedHubId]);
 
-  // Projects for the selected hub.
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(false);
-  const [projectsError, setProjectsError] = useState<string | null>(null);
+  // Project cache — populated lazily as the user searches and picks projects.
+  // Passed to OperationQueue so it can display project names.
+  const [projectCache, setProjectCache] = useState<Record<string, Project>>({});
 
-  // Fetch projects whenever the selected hub changes.
+  const handleProjectCached = useCallback((project: Project) => {
+    setProjectCache((prev) => (prev[project.id] ? prev : { ...prev, [project.id]: project }));
+  }, []);
+
+  // Clear the cache when the hub changes (projects belong to a specific hub).
   useEffect(() => {
-    if (!selectedHubId) {
-      setProjects([]);
-      setProjectsError(null);
-      return;
-    }
-
-    let cancelled = false;
-    setProjectsLoading(true);
-    setProjectsError(null);
-
-    fetch(`/api/projects?hubId=${encodeURIComponent(selectedHubId)}`)
-      .then(async (res) => {
-        const data: { projects?: Project[]; error?: string } = await res.json();
-        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-        return data.projects ?? [];
-      })
-      .then((loaded) => {
-        if (!cancelled) setProjects(loaded);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setProjects([]);
-          setProjectsError(err instanceof Error ? err.message : "Failed to load projects");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setProjectsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    setProjectCache({});
   }, [selectedHubId]);
 
   const handleCsvResult = useCallback((ops: CsvOperationRow[], _errors: CsvRowError[]) => {
@@ -120,7 +103,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-full bg-gray-50">
       <StepNav currentStep={step} />
 
       {/* ── Step 0: Input Data ─────────────────────────────── */}
@@ -142,10 +125,10 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
           <div className="space-y-4">
             {/* Hub selector — only visible when user belongs to multiple hubs */}
             <HubSelector
-              hubs={hubs}
+              hubs={filterRelevantHubs(hubs)}
               selectedHubId={selectedHubId}
               onSelect={setSelectedHubId}
-              required={inputMode === "csv"}
+              required
             />
 
             <div className="space-y-4">
@@ -189,9 +172,9 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
                 {/* Manual entry table */}
                 {inputMode === "manual" && (
                   <ManualEntryTable
-                    projects={projects}
                     accountId={selectedHubId ? hubs.find((h) => h.id === selectedHubId)?.accountId ?? null : null}
                     onResult={handleManualResult}
+                    onProjectCached={handleProjectCached}
                     initialOps={queueOps ?? undefined}
                   />
                 )}
@@ -242,9 +225,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
               {inputMode === "csv" && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <ProjectLookup
-                    projects={projects}
-                    loading={projectsLoading}
-                    error={projectsError}
+                    accountId={selectedHubId ? hubs.find((h) => h.id === selectedHubId)?.accountId ?? null : null}
                     hubSelected={selectedHubId !== null}
                   />
 
@@ -289,7 +270,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
           onNext={() => setStep(2)}
           onBack={() => { setInputMode("manual"); setStep(0); }}
         >
-          <OperationQueue operations={queueOps} projects={projects} onClear={handleClearQueue} />
+          <OperationQueue operations={queueOps} projects={Object.values(projectCache)} onClear={handleClearQueue} />
         </WizardLayout>
       )}
 
@@ -318,7 +299,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
           showNext={false}
           showBack={false}
         >
-          <OperationQueue operations={queueOps} projects={projects} onClear={handleClearQueue} autoExecute />
+          <OperationQueue operations={queueOps} projects={Object.values(projectCache)} onClear={handleClearQueue} autoExecute />
         </WizardLayout>
       )}
     </div>

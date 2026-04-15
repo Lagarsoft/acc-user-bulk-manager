@@ -186,7 +186,8 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    results.push({ projectId, operations: projectOps });
+    const projectName = ops[0]?.projectName;
+    results.push({ projectId, ...(projectName ? { projectName } : {}), operations: projectOps });
   }
 
   const response: DryRunResponse = {

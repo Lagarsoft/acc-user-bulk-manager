@@ -14,35 +14,12 @@ interface QueueItem extends CsvOperationRow {
   errorMessage?: string;
 }
 
-// A blank editable row being composed by the user before appending to the queue.
-interface NewRow {
-  email: string;
-  role: string;
-  projectId: string;
-  action: CsvAction;
-}
-
 interface Props {
   operations: CsvOperationRow[];
   projects: Project[];
   onClear: () => void;
   autoExecute?: boolean;
 }
-
-const VALID_ROLES = [
-  "admin",
-  "member",
-  "project_admin",
-  "project_manager",
-  "gc_foreman",
-  "gc_manager",
-  "owner",
-  "executive",
-  "editor",
-  "viewer",
-];
-
-const BLANK_NEW_ROW: NewRow = { email: "", role: "", projectId: "", action: "add" };
 
 function toQueueItem(op: CsvOperationRow): QueueItem {
   return {
@@ -55,8 +32,6 @@ function toQueueItem(op: CsvOperationRow): QueueItem {
 export default function OperationQueue({ operations, projects, onClear, autoExecute }: Props) {
   const [items, setItems] = useState<QueueItem[]>(() => operations.map(toQueueItem));
   const [running, setRunning] = useState(false);
-  const [addingRow, setAddingRow] = useState(false);
-  const [newRow, setNewRow] = useState<NewRow>(BLANK_NEW_ROW);
   const cancelRef = useRef(false);
 
   const projectNames = useMemo(
@@ -91,24 +66,7 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
     setItems((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  function commitNewRow() {
-    if (!newRow.email || !newRow.projectId) return;
-    const op: QueueItem = {
-      rowNumber: 0,
-      action: newRow.action,
-      projectId: newRow.projectId,
-      email: newRow.email,
-      role: newRow.role as QueueItem["role"],
-      firstName: "",
-      lastName: "",
-      status: "pending",
-    };
-    setItems((prev) => [...prev, op]);
-    setNewRow(BLANK_NEW_ROW);
-    setAddingRow(false);
-  }
-
-  /** Executes a single operation based on its action type. */
+/** Executes a single operation based on its action type. */
   async function executeOp(op: QueueItem): Promise<void> {
     if (op.action === "add") {
       const res = await fetch(
@@ -316,9 +274,6 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
     }
   };
 
-  const selectClass =
-    "border border-gray-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-aps-blue";
-
   return (
     <div>
       {/* Summary cards */}
@@ -478,7 +433,7 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
                   }
                 >
                   <td className="px-4 py-2 text-gray-400 tabular-nums">
-                    {item.rowNumber > 0 ? item.rowNumber : "—"}
+                    {idx + 1}
                   </td>
                   <td className="px-4 py-2">
                     <ActionBadge action={item.action} />
@@ -505,96 +460,6 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
                 </tr>
               ))}
             </tbody>
-            <tfoot className="bg-gray-50">
-              {addingRow ? (
-                <tr>
-                  <td className="px-4 py-2 text-gray-400">—</td>
-                  <td className="px-4 py-2">
-                    <select
-                      value={newRow.action}
-                      onChange={(e) =>
-                        setNewRow((r) => ({ ...r, action: e.target.value as CsvAction }))
-                      }
-                      className={selectClass}
-                    >
-                      <option value="add">add</option>
-                      <option value="update">update</option>
-                      <option value="remove">remove</option>
-                    </select>
-                  </td>
-                  <td className="px-4 py-2">
-                    <input
-                      type="email"
-                      placeholder="email@example.com"
-                      value={newRow.email}
-                      onChange={(e) => setNewRow((r) => ({ ...r, email: e.target.value }))}
-                      className="border border-gray-300 rounded px-1.5 py-0.5 text-xs w-44 focus:outline-none focus:ring-1 focus:ring-aps-blue"
-                    />
-                  </td>
-                  <td className="px-4 py-2">
-                    {newRow.action !== "remove" && (
-                      <select
-                        value={newRow.role}
-                        onChange={(e) => setNewRow((r) => ({ ...r, role: e.target.value }))}
-                        className={selectClass}
-                      >
-                        <option value="">— role —</option>
-                        {VALID_ROLES.map((r) => (
-                          <option key={r} value={r}>
-                            {r}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </td>
-                  <td className="px-4 py-2">
-                    <select
-                      value={newRow.projectId}
-                      onChange={(e) => setNewRow((r) => ({ ...r, projectId: e.target.value }))}
-                      className={selectClass}
-                    >
-                      <option value="">— project —</option>
-                      {projects.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-2" />
-                  <td className="px-2 py-2 flex gap-1">
-                    <button
-                      onClick={commitNewRow}
-                      disabled={!newRow.email || !newRow.projectId}
-                      className="text-xs bg-aps-blue text-white px-2 py-0.5 rounded disabled:opacity-40"
-                    >
-                      Add
-                    </button>
-                    <button
-                      onClick={() => {
-                        setAddingRow(false);
-                        setNewRow(BLANK_NEW_ROW);
-                      }}
-                      className="text-xs text-gray-400 hover:text-gray-600"
-                    >
-                      ✕
-                    </button>
-                  </td>
-                </tr>
-              ) : (
-                <tr>
-                  <td colSpan={7} className="px-4 py-2">
-                    <button
-                      onClick={() => setAddingRow(true)}
-                      disabled={running}
-                      className="text-xs text-aps-blue hover:underline disabled:opacity-40"
-                    >
-                      + Add operation
-                    </button>
-                  </td>
-                </tr>
-              )}
-            </tfoot>
           </table>
         </div>
       </div>

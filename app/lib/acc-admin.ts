@@ -12,7 +12,7 @@
  * All functions accept a 2-legged access token (account:read / account:write scope).
  */
 
-import { AdminClient, ProjectUser as SdkProjectUser, ProjectUserResponse } from "@aps_sdk/construction-account-admin";
+import { AdminClient, FilterTextMatch, ProjectUser as SdkProjectUser, ProjectUserResponse } from "@aps_sdk/construction-account-admin";
 import { DataManagementClient } from "@aps_sdk/data-management";
 
 const adminClient = new AdminClient();
@@ -29,6 +29,8 @@ export interface Hub {
   accountId: string; // raw UUID used by the Admin API
   name: string;
   region: string;
+  /** APS extension type, e.g. "hubs:autodesk.bim360:Hub" for ACC/BIM360/Forma hubs */
+  type?: string;
 }
 
 export interface Project {
@@ -126,6 +128,7 @@ export async function listHubs(token: string): Promise<Hub[]> {
       accountId,
       name: hub.attributes?.name ?? accountId,
       region: hub.attributes?.region ?? "US",
+      type: hub.attributes?.extension?.type,
     };
   });
 }
@@ -174,6 +177,30 @@ export async function listProjects(hubId: string, token: string): Promise<Projec
 
   console.log("[APS] listProjects ✓ total=%d", allProjects.length);
   return allProjects;
+}
+
+/**
+ * Searches projects by name using the ACC Admin API.
+ * Returns up to 50 results. Requires a 3-legged token with data:read scope.
+ */
+export async function searchProjects(accountId: string, query: string, token: string): Promise<Project[]> {
+  console.log("[APS] searchProjects accountId=%s query=%s", accountId, query);
+  const result = await adminClient.getProjects(accountId, {
+    filterName: query,
+    filterTextMatch: FilterTextMatch.Contains,
+    limit: 50,
+    accessToken: token,
+  });
+  const hubId = `b.${accountId}`;
+  return (result.results ?? []).map((p) => ({
+    id: p.id ?? "",
+    hubId,
+    accountId,
+    name: p.name ?? "",
+    status: (p.status as "active" | "inactive" | "suspended") ?? "active",
+    createdAt: p.createdAt ?? "",
+    updatedAt: p.updatedAt ?? "",
+  }));
 }
 
 // --------------------------------------------------------------------------

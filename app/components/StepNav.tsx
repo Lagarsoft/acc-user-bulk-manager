@@ -9,7 +9,7 @@ interface Props {
 export default function StepNav({ currentStep }: Props) {
   return (
     <nav
-      className="bg-white border-b border-gray-200 sticky top-14 z-40"
+      className="bg-white border-b border-gray-200 sticky top-0 z-40"
       aria-label="Workflow steps"
     >
       <div className="max-w-screen-xl mx-auto px-6 sm:px-10 py-4 flex items-center justify-center">

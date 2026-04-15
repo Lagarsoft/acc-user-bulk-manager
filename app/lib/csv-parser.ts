@@ -24,6 +24,8 @@ export interface CsvOperationRow {
   rowNumber: number; // 1-indexed data row (header = row 1, first data row = 2)
   action: CsvAction;
   projectId: string;
+  /** Human-readable project name — populated when the user picks via search; absent for CSV uploads. */
+  projectName?: string;
   email: string;
   role: AccRole;
   firstName: string;

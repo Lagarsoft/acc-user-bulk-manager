@@ -33,7 +33,7 @@ export default function WizardLayout({
   return (
     <div>
       {/* Sticky section header */}
-      <div className="sticky top-[57px] sm:top-[calc(57px+73px)] z-30 bg-white shadow-sm border-b border-gray-100">
+      <div className="sticky top-16 sm:top-24 z-30 bg-white shadow-sm border-b border-gray-100">
       <div className="max-w-screen-xl mx-auto px-6 sm:px-10 py-3 sm:py-4 flex items-center justify-between gap-4">
         <div className="min-w-0">
           <h2 className="text-xl font-semibold truncate">{title}</h2>

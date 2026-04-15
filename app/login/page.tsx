@@ -7,7 +7,7 @@ import LoginCard from "@/app/components/LoginCard";
  */
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="h-full bg-gray-50 flex items-center justify-center p-4">
       <LoginCard />
     </div>
   );

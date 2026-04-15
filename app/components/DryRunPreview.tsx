@@ -174,7 +174,9 @@ function ProjectDiff({ result }: { result: DryRunProjectResult }) {
       {/* Project header */}
       <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-800">Project</p>
+          <p className="text-sm font-semibold text-gray-800">
+            {result.projectName ?? "Project"}
+          </p>
           <p className="text-xs text-gray-500 font-mono truncate">{result.projectId}</p>
         </div>
         <div className="flex gap-2 text-xs shrink-0">

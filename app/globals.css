@@ -7,6 +7,14 @@
   --color-aps-light: #E6F4FB;
   --color-aps-hover: #0580BC;
 
+  /* Lagarsoft brand colors */
+  --color-lgs-smart-blue: #0066CC;   /* Primary */
+  --color-lgs-mint-leaf: #00C389;    /* Primary */
+  --color-lgs-cinnabar: #E04E39;     /* Secondary */
+  --color-lgs-pacific-blue: #18BBCC; /* Secondary */
+  --color-lgs-carbon-black: #191919; /* Secondary */
+  --color-lgs-duckie-yellow: #FFE66D; /* Alternative */
+
   /* Override default sans-serif stack with Inter */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }

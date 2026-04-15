@@ -21,6 +21,8 @@ export interface DryRunOperationResult {
 
 export interface DryRunProjectResult {
   projectId: string;
+  /** Present when the project name was known at submission time (manual entry). */
+  projectName?: string;
   operations: DryRunOperationResult[];
 }
 
