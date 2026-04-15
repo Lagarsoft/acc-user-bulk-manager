@@ -5,7 +5,7 @@ import { listHubs } from "@/app/lib/acc-admin";
 /**
  * GET /api/hubs
  *
- * Returns all ACC hubs (accounts) the signed-in user has access to.
+ * Returns all Forma hubs (accounts) the signed-in user has access to.
  * Requires a valid 3-legged session (data:read scope).
  *
  * Response 200:

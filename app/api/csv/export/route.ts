@@ -8,7 +8,7 @@ import { listProjectUsers } from "@/app/lib/acc-admin";
  * Streams a CSV snapshot of all users across the requested projects.
  *
  * Query parameters:
- *   projectIds  (required) Comma-separated list of ACC project UUIDs
+ *   projectIds  (required) Comma-separated list of Forma project UUIDs
  *   role        (optional) Only include users with this role (case-insensitive)
  *
  * Response 200:

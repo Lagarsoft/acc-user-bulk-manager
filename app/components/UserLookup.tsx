@@ -8,7 +8,7 @@ interface Props {
 }
 
 /**
- * UserLookup — search ACC account users by name or email and copy their email.
+ * UserLookup — search Forma account users by name or email and copy their email.
  *
  * Shown in the Step 0 sidebar so users can find emails while building
  * their CSV without leaving the app.

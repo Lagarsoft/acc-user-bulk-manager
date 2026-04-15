@@ -11,14 +11,14 @@ import type {
 /**
  * POST /api/dry-run
  *
- * Validates a list of CSV operations against the current ACC project state
+ * Validates a list of CSV operations against the current Forma project state
  * without applying any changes.
  *
  * For each operation:
  *   - add:    warns if user already exists in the project
  *   - update: errors if user is NOT found in the project
  *   - remove: warns if user is NOT found in the project (no-op)
- *   - any:    errors if the role value is not a recognised ACC role
+ *   - any:    errors if the role value is not a recognised Forma role
  *
  * Request body:
  *   { operations: CsvOperationRow[] }

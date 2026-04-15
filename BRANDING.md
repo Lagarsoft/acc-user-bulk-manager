@@ -83,7 +83,7 @@ No other social networks.
 - "Built by Lagarsoft — Autodesk Certified Partner" attribution at the bottom
 
 ### Page Metadata (`app/layout.tsx`)
-- Title: `"ACC User Bulk Manager by Lagarsoft"`
+- Title: `"Forma User Bulk Manager by Lagarsoft"`
 - OG site name: `"Lagarsoft"`
 - OG URL: `https://www.lagarsoft.com`
 

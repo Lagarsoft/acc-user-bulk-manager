@@ -6,7 +6,7 @@ import { listProjects, searchProjects } from "@/app/lib/acc-admin";
  * GET /api/projects?hubId=b.{accountId}[&q={query}]
  *
  * Without `q`: lists all projects for the hub following pagination.
- * With `q`:    searches projects by name via the ACC Admin API (up to 50 results).
+ * With `q`:    searches projects by name via the Forma Hub Admin API (up to 50 results).
  *              Requires at least 2 characters.
  *
  * The `hubId` parameter must use the "b.{uuid}" format from GET /api/hubs.

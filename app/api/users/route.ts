@@ -5,8 +5,8 @@ import { searchAccountUsers } from "@/app/lib/acc-admin";
 /**
  * GET /api/users?accountId={accountId}&q={query}
  *
- * Searches users in an ACC account by name or email (partial match).
- * Uses a 2-legged token — the Account Admin searchUsers endpoint does not
+ * Searches users in a Forma account by name or email (partial match).
+ * Uses a 2-legged token — the Hub Admin searchUsers endpoint does not
  * accept 3-legged tokens (returns 403 code 1003).
  *
  * Response 200:

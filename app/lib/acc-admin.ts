@@ -1,5 +1,5 @@
 /**
- * ACC Account Admin API client — built on @aps_sdk/construction-account-admin.
+ * Forma Hub Admin API client — built on @aps_sdk/construction-account-admin.
  *
  * Covers:
  *   - listHubs()                                                → reads APS_ACCOUNT_ID from env
@@ -29,7 +29,7 @@ export interface Hub {
   accountId: string; // raw UUID used by the Admin API
   name: string;
   region: string;
-  /** APS extension type, e.g. "hubs:autodesk.bim360:Hub" for ACC/BIM360/Forma hubs */
+  /** APS extension type, e.g. "hubs:autodesk.bim360:Hub" for Forma/BIM360 hubs */
   type?: string;
 }
 
@@ -157,7 +157,7 @@ export async function listProjects(hubId: string, token: string): Promise<Projec
     });
 
     for (const p of page.data ?? []) {
-      // DM API returns IDs with "b." prefix — strip it for ACC Admin API calls.
+      // DM API returns IDs with "b." prefix — strip it for Forma Hub Admin API calls.
       const rawId = p.id.startsWith("b.") ? p.id.slice(2) : p.id;
       allProjects.push({
         id: rawId,
@@ -180,7 +180,7 @@ export async function listProjects(hubId: string, token: string): Promise<Projec
 }
 
 /**
- * Searches projects by name using the ACC Admin API.
+ * Searches projects by name using the Forma Hub Admin API.
  * Returns up to 50 results. Requires a 3-legged token with data:read scope.
  */
 export async function searchProjects(accountId: string, query: string, token: string): Promise<Project[]> {
@@ -239,7 +239,7 @@ export async function listProjectUsers(projectId: string, token: string): Promis
 
 /**
  * Adds one or more users to a project using the bulk import endpoint.
- * The ACC import API is asynchronous — it returns a jobId, not user records.
+ * The Forma import API is asynchronous — it returns a jobId, not user records.
  * This function submits the import and returns an empty array; callers should
  * re-fetch users after a short delay to confirm the operation completed.
  */
@@ -305,8 +305,8 @@ export async function removeProjectUser(
 // --------------------------------------------------------------------------
 
 /**
- * Searches users in an ACC account by name or email (partial match).
- * Uses the Account Admin API — requires account:read scope and provisioning.
+ * Searches users in a Forma account by name or email (partial match).
+ * Uses the Hub Admin API — requires account:read scope and provisioning.
  */
 export async function searchAccountUsers(
   accountId: string,

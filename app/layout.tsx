@@ -8,17 +8,17 @@ import PostHogProvider from "./components/PostHogProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ACC User Bulk Manager by Lagarsoft",
+  title: "Forma User Bulk Manager by Lagarsoft",
   description:
-    "Bulk-add, remove, or update user permissions across multiple ACC projects via CSV. Built by Lagarsoft — Autodesk Certified Partner.",
+    "Bulk-add, remove, or update user permissions across multiple Forma projects via CSV. Built by Lagarsoft — Autodesk Certified Partner.",
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",
   },
   openGraph: {
-    title: "ACC User Bulk Manager",
+    title: "Forma User Bulk Manager",
     description:
-      "Bulk-add, remove, or update user permissions across multiple ACC projects via CSV.",
+      "Bulk-add, remove, or update user permissions across multiple Forma projects via CSV.",
     siteName: "Lagarsoft",
     url: "https://www.lagarsoft.com",
   },
@@ -55,7 +55,7 @@ export default async function RootLayout({
             />
           </a>
           <div className="w-px h-5 bg-white/20 shrink-0" />
-          <span className="font-semibold text-base tracking-tight">ACC User Bulk Manager</span>
+          <span className="font-semibold text-base tracking-tight">Forma User Bulk Manager</span>
 
           {isAuthenticated && (
             <div className="ml-auto">

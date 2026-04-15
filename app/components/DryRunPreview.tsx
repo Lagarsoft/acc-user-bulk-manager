@@ -78,7 +78,7 @@ export default function DryRunPreview({ operations, onHasErrors }: Props) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-gray-500">
         <div className="w-8 h-8 border-2 border-[#0696D7] border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-sm">Validating operations against ACC…</p>
+        <p className="text-sm">Validating operations against Forma…</p>
       </div>
     );
   }

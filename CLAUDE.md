@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Bulk-add, remove, or update user permissions across multiple Autodesk Construction Cloud (ACC) projects via CSV upload. Distributed as an Autodesk App Store app using the ACC and APS (Autodesk Platform Services) APIs.
+Bulk-add, remove, or update user permissions across multiple Autodesk Forma projects via CSV upload. Distributed as an Autodesk App Store app using the Forma and APS (Autodesk Platform Services) APIs.
 
 ## Architecture
 
@@ -22,10 +22,10 @@ acc-user-bulk-manager/
 ├── app/
 │   ├── api/             # Next.js Route Handlers (replaces Express routes)
 │   │   ├── auth/        # OAuth callback + token endpoints
-│   │   ├── projects/    # ACC project & user endpoints
+│   │   ├── projects/    # Forma project & user endpoints
 │   │   └── csv/         # Import/export endpoints
 │   ├── components/      # React client/server components
-│   ├── lib/             # ACC/APS API clients, CSV logic, auth helpers
+│   ├── lib/             # Forma/APS API clients, CSV logic, auth helpers
 │   └── page.tsx         # Main UI entry point
 ├── docker-compose.yml
 ├── .env.local.example
@@ -43,8 +43,8 @@ All issues are in `Lagarsoft/acc-user-bulk-manager`. Work through them roughly i
 - **#2** `auth` — APS OAuth: 2-legged (client credentials) for admin ops + 3-legged (authorization code) for user-delegated ops. Token storage, refresh, and callback route.
 
 ### Backend
-- **#3** `backend` — ACC Account Admin API: `GET /hubs` and `GET /hubs/:hubId/projects` with pagination. Normalize to internal `Project` model. Handle rate limits.
-- **#4** `backend` — ACC Project Admin API: list/add/update/remove users per project. Map ACC role enums to human-readable labels.
+- **#3** `backend` — Forma Hub Admin API: `GET /hubs` and `GET /hubs/:hubId/projects` with pagination. Normalize to internal `Project` model. Handle rate limits.
+- **#4** `backend` — Forma Project Admin API: list/add/update/remove users per project. Map Forma role enums to human-readable labels.
 - **#5** `backend` — CSV import parser: columns `email`, `role`, `project_id` (required), `first_name`, `last_name` (optional). Row-level validation and error reporting. Returns structured operation queue.
 - **#6** `backend` — CSV export: snapshot of all users across selected projects. Columns: `project`, `email`, `first_name`, `last_name`, `role`, `status`. Stream large exports.
 
@@ -53,17 +53,17 @@ All issues are in `Lagarsoft/acc-user-bulk-manager`. Work through them roughly i
 - **#8** `frontend` — Bulk operation queue: pre-execution preview, progress bar per operation, success/error badge per row, retry failed ops, cancel in-progress queue.
 
 ### UX
-- **#9** `ux` — Dry-run mode: "Preview Changes" step before execution showing diff (added/removed/updated per project). Validate all entries against ACC API constraints before submitting. Document rollback strategy for partial failures.
+- **#9** `ux` — Dry-run mode: "Preview Changes" step before execution showing diff (added/removed/updated per project). Validate all entries against Forma API constraints before submitting. Document rollback strategy for partial failures.
 
 ### Publishing
 - **#10** `publishing` — App Store listing assets: product description (≤500 chars), 3 screenshots (1280×800), app icon (200×200), demo video, privacy policy URL.
-- **#11** `docs` — README and publisher docs: installation/local dev, APS app setup guide (client ID, scopes), ACC admin prerequisites, API reference summary, changelog/versioning policy, App Store submission steps.
+- **#11** `docs` — README and publisher docs: installation/local dev, APS app setup guide (client ID, scopes), Forma admin prerequisites, API reference summary, changelog/versioning policy, App Store submission steps.
 
 ## Key API References
 
 - **APS Auth**: `https://developer.autodesk.com/en/docs/oauth/v2/`
-- **ACC Account Admin**: `https://aps.autodesk.com/en/docs/acc/v1/reference/http/admin-users/`
-- **ACC Project Admin**: `https://aps.autodesk.com/en/docs/acc/v1/reference/http/projectadmin-projects-users/`
+- **Forma Hub Admin**: `https://aps.autodesk.com/en/docs/acc/v1/reference/http/admin-users/`
+- **Forma Project Admin**: `https://aps.autodesk.com/en/docs/acc/v1/reference/http/projectadmin-projects-users/`
 
 ## Environment Variables
 

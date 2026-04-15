@@ -29,7 +29,7 @@ export default function LoginCard() {
 
       <h1 className="text-2xl font-semibold mb-1">Welcome back</h1>
       <p className="text-gray-500 text-sm mb-8">
-        Sign in with your Autodesk account to manage ACC project users in bulk.
+        Sign in with your Autodesk account to manage Forma project users in bulk.
       </p>
 
       <a
@@ -47,7 +47,7 @@ export default function LoginCard() {
         <ul className="space-y-1.5 text-xs text-gray-600">
           <li className="flex items-center gap-2">
             <span className="text-green-500 font-bold">✓</span>
-            Read ACC hubs and projects
+            Read Forma hubs and projects
           </li>
           <li className="flex items-center gap-2">
             <span className="text-green-500 font-bold">✓</span>

@@ -19,7 +19,7 @@ interface Props {
   initialError: string | null;
 }
 
-/** Keeps only ACC / BIM360 / Forma hubs. Falls back to all hubs if none match. */
+/** Keeps only Forma / BIM360 hubs. Falls back to all hubs if none match. */
 function filterRelevantHubs(hubs: Hub[]): Hub[] {
   const relevant = hubs.filter((h) => {
     const t = h.type?.toLowerCase() ?? "";
@@ -251,11 +251,11 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
                       </div>
                       <div>
                         <dt className="font-medium text-gray-700 font-mono">role</dt>
-                        <dd className="text-gray-500">ACC role: admin, member, viewer…</dd>
+                        <dd className="text-gray-500">Forma role: admin, member, viewer…</dd>
                       </div>
                       <div>
                         <dt className="font-medium text-gray-700 font-mono">project_id</dt>
-                        <dd className="text-gray-500">ACC project UUID</dd>
+                        <dd className="text-gray-500">Forma project UUID</dd>
                       </div>
                     </dl>
                     <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-3">
@@ -317,7 +317,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
       {step === 3 && queueOps && (
         <WizardLayout
           title="Executing Changes"
-          subtitle="Applying bulk operations to ACC. Do not close this tab."
+          subtitle="Applying bulk operations to Forma. Do not close this tab."
           showNext={false}
           showBack={false}
         >
