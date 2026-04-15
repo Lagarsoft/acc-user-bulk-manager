@@ -105,7 +105,7 @@ export default function UserTable({ users, projects, onRoleUpdate }: Props) {
   if (users.length === 0) {
     return (
       <div className="mt-16 text-center text-sm text-gray-400">
-        Select projects and click "Load Users" to populate the table.
+        Select projects and click &quot;Load Users&quot; to populate the table.
       </div>
     );
   }
