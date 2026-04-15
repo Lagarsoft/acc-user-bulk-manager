@@ -128,3 +128,4 @@ export async function refreshAccessToken(refreshToken: string): Promise<ThreeLeg
 export const COOKIE_ACCESS_TOKEN = "aps_access_token";
 export const COOKIE_REFRESH_TOKEN = "aps_refresh_token";
 export const COOKIE_EXPIRES_AT = "aps_expires_at";
+export const COOKIE_USER_EMAIL = "aps_user_email";

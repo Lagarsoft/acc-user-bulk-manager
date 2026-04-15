@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import type { Hub, Project } from "@/app/lib/acc-admin";
 import type { CsvOperationRow, CsvRowError } from "@/app/lib/csv-parser";
 import StepNav from "@/app/components/StepNav";
+import { trackEvent } from "@/app/lib/analytics";
 import WizardLayout from "@/app/components/WizardLayout";
 import CsvUploader from "@/app/components/CsvUploader";
 import OperationQueue from "@/app/components/OperationQueue";
@@ -95,6 +96,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
   function switchInputMode(mode: "manual" | "csv") {
     setInputMode(mode);
     setQueueOps(null);
+    trackEvent("input_mode_changed", { mode });
   }
 
   const handleClearQueue = useCallback(() => {
@@ -113,7 +115,10 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
           subtitle="Build your operation list manually or import a CSV file."
           nextLabel="Continue to Queue"
           canAdvance={queueOps !== null && queueOps.length > 0 && (inputMode !== "csv" || selectedHubId !== null)}
-          onNext={() => setStep(1)}
+          onNext={() => {
+            trackEvent("step_completed", { step: 0, input_mode: inputMode, operation_count: queueOps?.length ?? 0 });
+            setStep(1);
+          }}
           showBack={false}
         >
           {error && (
@@ -127,7 +132,11 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
             <HubSelector
               hubs={filterRelevantHubs(hubs)}
               selectedHubId={selectedHubId}
-              onSelect={setSelectedHubId}
+              onSelect={(id) => {
+                setSelectedHubId(id);
+                const hub = hubs.find((h) => h.id === id);
+                if (hub) trackEvent("hub_selected", { hub_id: hub.id, hub_name: hub.name });
+              }}
               required
             />
 
@@ -267,8 +276,15 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
           title="Bulk Operation Queue"
           subtitle="Edit, add, or remove operations before running the dry-run preview."
           nextLabel="Preview Changes"
-          onNext={() => setStep(2)}
-          onBack={() => { setInputMode("manual"); setStep(0); }}
+          onNext={() => {
+            trackEvent("step_completed", { step: 1, operation_count: queueOps?.length ?? 0 });
+            setStep(2);
+          }}
+          onBack={() => {
+            trackEvent("step_back", { from_step: 1, to_step: 0 });
+            setInputMode("manual");
+            setStep(0);
+          }}
         >
           <OperationQueue operations={queueOps} projects={Object.values(projectCache)} onClear={handleClearQueue} />
         </WizardLayout>
@@ -281,8 +297,14 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
           subtitle="Validate and review what will change in each project. No changes have been made yet."
           nextLabel="Confirm &amp; Execute"
           canAdvance={!dryRunHasErrors}
-          onNext={() => setStep(3)}
-          onBack={() => setStep(1)}
+          onNext={() => {
+            trackEvent("step_completed", { step: 2, operation_count: queueOps?.length ?? 0 });
+            setStep(3);
+          }}
+          onBack={() => {
+            trackEvent("step_back", { from_step: 2, to_step: 1 });
+            setStep(1);
+          }}
         >
           <DryRunPreview
             operations={queueOps}

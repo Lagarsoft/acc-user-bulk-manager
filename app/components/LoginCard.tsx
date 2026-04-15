@@ -1,5 +1,7 @@
 "use client";
 
+import { trackEvent } from "@/app/lib/analytics";
+
 /**
  * LoginCard — shown on /login.
  * Presents the "Sign in with Autodesk" button (links to GET /api/auth/login),
@@ -32,6 +34,7 @@ export default function LoginCard() {
 
       <a
         href="/api/auth/login"
+        onClick={() => trackEvent("login_initiated")}
         className="w-full bg-[#0696D7] hover:bg-[#0580BC] text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
       >
         Sign in with Autodesk

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { trackEvent } from "@/app/lib/analytics";
 import type { CsvOperationRow, CsvAction } from "@/app/lib/csv-parser";
 import type {
   DryRunResponse,
@@ -45,12 +46,22 @@ export default function DryRunPreview({ operations, onHasErrors }: Props) {
         if (!cancelled) {
           setResult(data);
           onHasErrors(data.summary.errors > 0);
+          trackEvent("dryrun_completed", {
+            total: data.summary.total,
+            valid: data.summary.valid,
+            warnings: data.summary.warnings,
+            errors: data.summary.errors,
+          });
+          if (data.summary.errors > 0) {
+            trackEvent("dryrun_has_blockers", { error_count: data.summary.errors });
+          }
         }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
           setFetchError(err instanceof Error ? err.message : "Unknown error");
           onHasErrors(true);
+          trackEvent("dryrun_has_blockers", { error_count: -1 });
         }
       })
       .finally(() => {

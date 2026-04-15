@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
 import Footer from "./components/Footer";
+import PostHogProvider from "./components/PostHogProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -34,6 +35,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} h-screen flex flex-col overflow-hidden`}>
+        <PostHogProvider>
         {/* Sticky header */}
         <header className="bg-aps-dark text-white h-14 flex items-center px-6 gap-3 shadow-md sticky top-0 z-50">
           <a
@@ -72,6 +74,7 @@ export default async function RootLayout({
         <main className="flex-1 overflow-auto">{children}</main>
 
         <Footer />
+        </PostHogProvider>
       </body>
     </html>
   );

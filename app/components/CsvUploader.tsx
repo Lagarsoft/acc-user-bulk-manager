@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import type { CsvOperationRow, CsvRowError } from "@/app/lib/csv-parser";
+import { trackEvent } from "@/app/lib/analytics";
 
 interface Props {
   onResult: (operations: CsvOperationRow[], errors: CsvRowError[]) => void;
@@ -56,7 +57,16 @@ export default function CsvUploader({ onResult }: Props) {
         const counts = { add: 0, update: 0, remove: 0 };
         for (const op of operations) counts[op.action]++;
         setActionCounts(counts);
+        trackEvent("csv_uploaded", {
+          row_count: operations.length,
+          add_count: counts.add,
+          update_count: counts.update,
+          remove_count: counts.remove,
+          error_count: errors.length,
+        });
         onResult(operations, errors);
+      } else if (errors.length > 0) {
+        trackEvent("csv_parse_failed", { error_count: errors.length });
       }
     } catch (err) {
       setParseErrors([
@@ -66,6 +76,7 @@ export default function CsvUploader({ onResult }: Props) {
           message: err instanceof Error ? err.message : "Upload failed",
         },
       ]);
+      trackEvent("csv_parse_failed", { error_count: 1 });
     } finally {
       setUploading(false);
     }

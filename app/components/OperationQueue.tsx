@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import type { Project } from "@/app/lib/acc-admin";
 import type { CsvOperationRow } from "@/app/lib/csv-parser";
+import { trackEvent } from "@/app/lib/analytics";
 
 type CsvAction = "add" | "update" | "remove";
 type OpStatus = "pending" | "running" | "success" | "error";
@@ -33,6 +34,8 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
   const [items, setItems] = useState<QueueItem[]>(() => operations.map(toQueueItem));
   const [running, setRunning] = useState(false);
   const cancelRef = useRef(false);
+  const executionStartedRef = useRef(false);
+  const executionCompletedRef = useRef(false);
 
   const projectNames = useMemo(
     () => Object.fromEntries(projects.map((p) => [p.id, p.name])),
@@ -138,6 +141,10 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
   const executeQueue = useCallback(async (startItems: QueueItem[]) => {
     setRunning(true);
     cancelRef.current = false;
+    if (!executionStartedRef.current) {
+      executionStartedRef.current = true;
+      trackEvent("execution_started", { total: startItems.length });
+    }
 
     const statuses: OpStatus[] = startItems.map((i) => i.status);
 
@@ -169,6 +176,11 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
           next[i] = { ...next[i], status: "error", errorMessage: message };
           return next;
         });
+        trackEvent("operation_failed", {
+          action: startItems[i].action,
+          error_message: message,
+          project_id: startItems[i].projectId,
+        });
       }
     }
 
@@ -181,11 +193,27 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Track execution_completed once when the summary panel becomes visible.
+  useEffect(() => {
+    if (isExecutionComplete && !executionCompletedRef.current) {
+      executionCompletedRef.current = true;
+      trackEvent("execution_completed", {
+        total: counts.total,
+        succeeded: counts.success,
+        failed: counts.error,
+        skipped: counts.pending,
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExecutionComplete]);
+
   function handleExecuteAll() {
     executeQueue(items);
   }
 
   function handleRetryFailed() {
+    trackEvent("retry_clicked", { failed_count: counts.error });
+    executionCompletedRef.current = false;
     const reset = items.map((item) =>
       item.status === "error"
         ? { ...item, status: "pending" as const, errorMessage: undefined }
@@ -196,10 +224,15 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
   }
 
   function handleCancel() {
+    trackEvent("execution_cancelled", {
+      completed_at_cancel: counts.success + counts.error,
+      total: counts.total,
+    });
     cancelRef.current = true;
   }
 
   function downloadRollbackCsv() {
+    trackEvent("rollback_csv_downloaded", { operation_count: items.filter((i) => i.status === "success").length });
     const succeeded = items.filter((i) => i.status === "success");
     const rows: string[] = ["email,project_id,action,role,first_name,last_name"];
     for (const item of succeeded) {
