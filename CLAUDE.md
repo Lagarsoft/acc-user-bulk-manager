@@ -62,7 +62,7 @@ All issues are in `Lagarsoft/acc-user-bulk-manager`. Work through them roughly i
 ## Key API References
 
 - **APS Auth**: `https://developer.autodesk.com/en/docs/oauth/v2/`
-- **Forma Hub Admin**: `https://aps.autodesk.com/en/docs/acc/v1/reference/http/admin-users/`
+- **Forma Hub Admin**: URL unverified — find current docs at `https://aps.autodesk.com`
 - **Forma Project Admin**: `https://aps.autodesk.com/en/docs/acc/v1/reference/http/projectadmin-projects-users/`
 
 ## Environment Variables
