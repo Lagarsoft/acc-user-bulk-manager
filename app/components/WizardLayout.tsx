@@ -8,7 +8,9 @@ interface Props {
   children: ReactNode;
   onNext?: () => void;
   onBack?: () => void;
+  onSkip?: () => void;
   nextLabel?: string;
+  skipLabel?: string;
   canAdvance?: boolean;
   showNext?: boolean;
   showBack?: boolean;
@@ -25,7 +27,9 @@ export default function WizardLayout({
   children,
   onNext,
   onBack,
+  onSkip,
   nextLabel = "Continue",
+  skipLabel = "Skip",
   canAdvance = true,
   showNext = true,
   showBack = true,
@@ -49,6 +53,14 @@ export default function WizardLayout({
               className="border border-gray-300 text-sm font-medium py-2 px-4 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1"
             >
               ← <span className="hidden sm:inline">Back</span>
+            </button>
+          )}
+          {onSkip && (
+            <button
+              onClick={onSkip}
+              className="border border-gray-300 text-sm font-medium py-2 px-4 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              {skipLabel}
             </button>
           )}
           {showNext && onNext && (

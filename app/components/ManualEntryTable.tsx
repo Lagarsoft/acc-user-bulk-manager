@@ -60,7 +60,7 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
       email: op.email,
       role: op.role as AccRole,
       projectId: op.projectId,
-      projectName: "",
+      projectName: op.projectName ?? "",
       firstName: op.firstName ?? "",
       lastName: op.lastName ?? "",
     }));

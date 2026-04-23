@@ -1,6 +1,6 @@
 "use client";
 
-const STEPS = ["Input Data", "Bulk Queue", "Preview Changes", "Execution"];
+const STEPS = ["Import Users", "User Results", "Permissions", "Preview Changes", "Permission Results"];
 
 interface Props {
   currentStep: number; // 0-indexed
