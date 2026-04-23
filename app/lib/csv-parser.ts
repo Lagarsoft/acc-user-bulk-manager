@@ -71,8 +71,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /**
  * Parses a single CSV line, respecting RFC 4180 quoting rules.
  * Fields are trimmed of surrounding whitespace.
+ *
+ * Exported so other CSV parsers (e.g. user-csv-parser) can reuse the same
+ * quoting/escaping behavior without duplicating the logic.
  */
-function parseLine(line: string): string[] {
+export function parseLine(line: string): string[] {
   const fields: string[] = [];
   let current = "";
   let inQuotes = false;

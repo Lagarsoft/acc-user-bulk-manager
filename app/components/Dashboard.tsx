@@ -13,6 +13,10 @@ import HubSelector from "@/app/components/HubSelector";
 import ProjectLookup from "@/app/components/ProjectLookup";
 import UserLookup from "@/app/components/UserLookup";
 import ManualEntryTable from "@/app/components/ManualEntryTable";
+import UserImportStep from "@/app/components/UserImportStep";
+import type { UserImportStepState } from "@/app/components/UserImportStep";
+import UserImportResultsTable from "@/app/components/UserImportResultsTable";
+import type { AccountUserImportResult } from "@/app/lib/acc-admin";
 
 interface Props {
   initialHubs: Hub[];
@@ -29,12 +33,13 @@ function filterRelevantHubs(hubs: Hub[]): Hub[] {
 }
 
 /**
- * Dashboard — orchestrates the 4-step bulk-import wizard.
+ * Dashboard — orchestrates the 5-step bulk-import wizard.
  *
- * Step 0: Input Data      — hub selector, project lookup, CSV upload
- * Step 1: Bulk Queue      — review / edit operations; advance to dry-run
- * Step 2: Preview Changes — dry-run diff and validation
- * Step 3: Execution       — run operations
+ * Step 0: Import Users       — skippable; creates missing users in the account
+ * Step 1: User Results       — per-row outcome of the Import Users run
+ * Step 2: Permissions        — hub selector, project lookup, CSV upload / manual entry
+ * Step 3: Preview Changes    — dry-run diff and validation
+ * Step 4: Permission Results — run operations
  */
 export default function Dashboard({ initialHubs, initialError }: Props) {
   const [step, setStep] = useState(0);
@@ -85,6 +90,18 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
     setProjectCache({});
   }, [selectedHubId]);
 
+  // UserImportStep bubbles up its state so the WizardLayout header can render
+  // the right primary button (Create Users) without duplicating logic.
+  const [userImportState, setUserImportState] = useState<UserImportStepState>({
+    hasRows: false,
+    running: false,
+    pendingCount: 0,
+    runImport: () => Promise.resolve(),
+  });
+
+  // Results of the most recent Import Users run — rendered by the Results step.
+  const [importResults, setImportResults] = useState<AccountUserImportResult[] | null>(null);
+
   const handleCsvResult = useCallback((ops: CsvOperationRow[], _errors: CsvRowError[]) => {
     setQueueOps(ops);
   }, []);
@@ -101,6 +118,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
 
   const handleClearQueue = useCallback(() => {
     setQueueOps(null);
+    setImportResults(null);
     setStep(0);
   }, []);
 
@@ -108,18 +126,78 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
     <div className="min-h-full bg-gray-50">
       <StepNav currentStep={step} />
 
-      {/* ── Step 0: Input Data ─────────────────────────────── */}
-      {step === 0 && (
+      {/* ── Step 0: Import Users ───────────────────────────── */}
+      {step === 0 && (() => {
+        const { hasRows, running, pendingCount, runImport } = userImportState;
+        const nextLabel = pendingCount > 0
+          ? `Create ${pendingCount} user${pendingCount === 1 ? "" : "s"}`
+          : "Create Users";
+        const canAdvance = hasRows && !running;
+
+        return (
+          <WizardLayout
+            title="Import Users"
+            subtitle="Create new users in the Forma account. Optional — skip to go straight to project operations."
+            nextLabel={nextLabel}
+            canAdvance={canAdvance}
+            showBack={false}
+            onSkip={() => {
+              trackEvent("user_import_skipped", { had_rows: hasRows });
+              setStep(2);
+            }}
+            onNext={() => {
+              void runImport();
+            }}
+          >
+            <UserImportStep
+              hubs={filterRelevantHubs(hubs)}
+              selectedHubId={selectedHubId}
+              onSelectHub={(id) => setSelectedHubId(id)}
+              onStateChange={setUserImportState}
+              onImportComplete={(results) => {
+                setImportResults(results);
+                trackEvent("step_completed", { step: 0 });
+                setStep(1);
+              }}
+            />
+          </WizardLayout>
+        );
+      })()}
+
+      {/* ── Step 1: User Results ───────────────────────────── */}
+      {step === 1 && (
         <WizardLayout
-          title="Input Data"
+          title="User Results"
+          subtitle="Per-row outcome of the account-user import run."
+          nextLabel="Continue to Input"
+          onNext={() => {
+            trackEvent("step_completed", { step: 1 });
+            setStep(2);
+          }}
+          onBack={() => {
+            trackEvent("step_back", { from_step: 1, to_step: 0 });
+            setStep(0);
+          }}
+        >
+          <UserImportResultsTable results={importResults ?? []} />
+        </WizardLayout>
+      )}
+
+      {/* ── Step 2: Permissions ────────────────────────────── */}
+      {step === 2 && (
+        <WizardLayout
+          title="Permissions"
           subtitle="Build your operation list manually or import a CSV file."
-          nextLabel="Continue to Queue"
+          nextLabel="Preview Changes"
           canAdvance={queueOps !== null && queueOps.length > 0 && (inputMode !== "csv" || selectedHubId !== null)}
           onNext={() => {
-            trackEvent("step_completed", { step: 0, input_mode: inputMode, operation_count: queueOps?.length ?? 0 });
-            setStep(1);
+            trackEvent("step_completed", { step: 2, input_mode: inputMode, operation_count: queueOps?.length ?? 0 });
+            setStep(3);
           }}
-          showBack={false}
+          onBack={() => {
+            trackEvent("step_back", { from_step: 2, to_step: importResults ? 1 : 0 });
+            setStep(importResults ? 1 : 0);
+          }}
         >
           {error && (
             <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -270,40 +348,21 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
         </WizardLayout>
       )}
 
-      {/* ── Step 1: Bulk Queue ─────────────────────────────── */}
-      {step === 1 && queueOps && (
-        <WizardLayout
-          title="Bulk Operation Queue"
-          subtitle="Edit, add, or remove operations before running the dry-run preview."
-          nextLabel="Preview Changes"
-          onNext={() => {
-            trackEvent("step_completed", { step: 1, operation_count: queueOps?.length ?? 0 });
-            setStep(2);
-          }}
-          onBack={() => {
-            trackEvent("step_back", { from_step: 1, to_step: 0 });
-            setInputMode("manual");
-            setStep(0);
-          }}
-        >
-          <OperationQueue operations={queueOps} projects={Object.values(projectCache)} onClear={handleClearQueue} />
-        </WizardLayout>
-      )}
-
-      {/* ── Step 2: Preview Changes ────────────────────────── */}
-      {step === 2 && queueOps && (
+      {/* ── Step 3: Preview Changes ────────────────────────── */}
+      {step === 3 && queueOps && (
         <WizardLayout
           title="Preview Changes"
           subtitle="Validate and review what will change in each project. No changes have been made yet."
-          nextLabel="Confirm &amp; Execute"
+          nextLabel="Apply Permissions"
           canAdvance={!dryRunHasErrors}
           onNext={() => {
-            trackEvent("step_completed", { step: 2, operation_count: queueOps?.length ?? 0 });
-            setStep(3);
+            trackEvent("step_completed", { step: 3, operation_count: queueOps?.length ?? 0 });
+            setStep(4);
           }}
           onBack={() => {
-            trackEvent("step_back", { from_step: 2, to_step: 1 });
-            setStep(1);
+            trackEvent("step_back", { from_step: 3, to_step: 2 });
+            setInputMode("manual");
+            setStep(2);
           }}
         >
           <DryRunPreview
@@ -313,10 +372,10 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
         </WizardLayout>
       )}
 
-      {/* ── Step 3: Execution ──────────────────────────────── */}
-      {step === 3 && queueOps && (
+      {/* ── Step 4: Permission Results ─────────────────────── */}
+      {step === 4 && queueOps && (
         <WizardLayout
-          title="Executing Changes"
+          title="Permission Results"
           subtitle="Applying bulk operations to Forma. Do not close this tab."
           showNext={false}
           showBack={false}

@@ -8,6 +8,9 @@
  *   - addProjectUsers(projectId, users)                         → AdminClient.importProjectUsers()
  *   - updateProjectUser(projectId, userId, payload)             → AdminClient.updateProjectUser()
  *   - removeProjectUser(projectId, userId)                      → AdminClient.removeProjectUser()
+ *   - searchAccountUsers(accountId, query)                      → AdminClient.searchUsers()
+ *   - findAccountUserByEmail(accountId, email)                  → exact-email existence check
+ *   - createAccountUsers(accountId, users, region?)             → POST /hq/v1/.../users/import
  *
  * All functions accept a 2-legged access token (account:read / account:write scope).
  */
@@ -105,6 +108,27 @@ export interface AccountUser {
   name: string;
   status: string;
   companyName: string;
+}
+
+export type AccountRegion = "US" | "EMEA";
+
+export interface CreateAccountUserInput {
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  company?: string;
+  jobTitle?: string;
+  phone?: string;
+  industry?: string;
+}
+
+export type AccountUserImportStatus = "created" | "exists" | "error";
+
+export interface AccountUserImportResult {
+  email: string;
+  status: AccountUserImportStatus;
+  userId?: string;
+  message?: string;
 }
 
 // --------------------------------------------------------------------------
@@ -347,6 +371,170 @@ export async function searchAccountUsers(
     status: u.status ?? "",
     companyName: u.company_name ?? "",
   }));
+}
+
+/**
+ * Returns the account user with an exact-email match, or null if none.
+ *
+ * Uses the same /construction/admin/v1/.../users/search endpoint as
+ * searchAccountUsers() but with `partial: false` so only exact matches come back.
+ * Keeps the partial-search helper intact for the UserLookup component.
+ */
+export async function findAccountUserByEmail(
+  accountId: string,
+  email: string,
+  token: string,
+): Promise<AccountUser | null> {
+  const trimmed = email.trim();
+  if (!trimmed) return null;
+
+  try {
+    const results = await adminClient.searchUsers(accountId, {
+      email: trimmed,
+      operator: "AND",
+      partial: false,
+      limit: 1,
+      accessToken: token,
+    });
+    const first = results[0];
+    if (!first) return null;
+    return {
+      id: first.id ?? "",
+      email: first.email ?? "",
+      firstName: first.first_name ?? "",
+      lastName: first.last_name ?? "",
+      name: first.name ?? `${first.first_name ?? ""} ${first.last_name ?? ""}`.trim(),
+      status: first.status ?? "",
+      companyName: first.company_name ?? "",
+    };
+  } catch (err) {
+    console.error("[APS] findAccountUserByEmail error for %s:", trimmed, err);
+    throw err;
+  }
+}
+
+/**
+ * Creates users at the account level via the /hq/v1 bulk-import endpoint.
+ * The SDK does not cover /hq/v1, so this uses raw fetch.
+ *
+ * Regions: US (default) uses /hq/v1/accounts/..., EMEA uses /hq/v1/regions/eu/accounts/...
+ *
+ * If the email has no Autodesk identity, APS auto-sends an invite and the new
+ * user starts in `status: "pending"`. If the identity exists, the user is added
+ * immediately as `active`.
+ *
+ * Requires the account to have Custom Integration activation for the APS client —
+ * otherwise the call fails with 401.
+ *
+ * The bulk endpoint always returns HTTP 200 even with per-row failures. The caller
+ * receives a normalized per-email result array.
+ */
+export async function createAccountUsers(
+  accountId: string,
+  users: CreateAccountUserInput[],
+  token: string,
+  region: AccountRegion = "US",
+): Promise<AccountUserImportResult[]> {
+  if (users.length === 0) return [];
+
+  const baseUrl = region === "EMEA"
+    ? `https://developer.api.autodesk.com/hq/v1/regions/eu/accounts/${accountId}/users/import`
+    : `https://developer.api.autodesk.com/hq/v1/accounts/${accountId}/users/import`;
+
+  const payload = users.map((u) => ({
+    email: u.email,
+    first_name: u.firstName,
+    last_name: u.lastName,
+    company: u.company,
+    job_title: u.jobTitle,
+    phone: u.phone,
+    industry: u.industry,
+  }));
+
+  console.log(
+    "[APS] createAccountUsers → POST %s count=%d region=%s",
+    baseUrl, users.length, region,
+  );
+
+  const response = await fetch(baseUrl, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const raw = await response.text();
+  let body: unknown = null;
+  try {
+    body = raw ? JSON.parse(raw) : null;
+  } catch {
+    // leave body as null; error paths use raw below
+  }
+
+  if (!response.ok) {
+    const message = extractErrorMessage(body) ?? raw ?? `HTTP ${response.status}`;
+    console.error("[APS] createAccountUsers ✗ status=%d body=%s", response.status, raw);
+    return users.map((u) => ({ email: u.email, status: "error" as const, message }));
+  }
+
+  console.log("[APS] createAccountUsers ✓ status=%d", response.status);
+
+  const parsed = body as {
+    success_items?: Array<{ email?: string; id?: string; uid?: string }>;
+    failure_items?: Array<{
+      item?: { email?: string };
+      user?: { email?: string };
+      email?: string;
+      error?: string;
+      errors?: Array<{ code?: string; message?: string }>;
+    }>;
+  } | null;
+
+  const created = new Map<string, string | undefined>();
+  for (const item of parsed?.success_items ?? []) {
+    if (item.email) created.set(item.email.toLowerCase(), item.id ?? item.uid);
+  }
+
+  const failed = new Map<string, string>();
+  for (const item of parsed?.failure_items ?? []) {
+    const email = (item.item?.email ?? item.user?.email ?? item.email ?? "").toLowerCase();
+    let msg: string;
+    if (typeof item.error === "string" && item.error) {
+      msg = item.error;
+    } else if (Array.isArray(item.errors) && item.errors.length > 0) {
+      msg = item.errors.map((e) => e.message ?? e.code ?? "error").join("; ");
+    } else {
+      msg = "import failed";
+    }
+    if (email) failed.set(email, msg);
+  }
+
+  return users.map((u) => {
+    const key = u.email.toLowerCase();
+    if (created.has(key)) {
+      return { email: u.email, status: "created" as const, userId: created.get(key) };
+    }
+    if (failed.has(key)) {
+      return { email: u.email, status: "error" as const, message: failed.get(key) };
+    }
+    // If the bulk endpoint returned no mention of this email (rare), optimistically treat as created.
+    return { email: u.email, status: "created" as const };
+  });
+}
+
+function extractErrorMessage(body: unknown): string | undefined {
+  if (!body || typeof body !== "object") return undefined;
+  const obj = body as Record<string, unknown>;
+  if (typeof obj.developerMessage === "string") return obj.developerMessage;
+  if (typeof obj.userMessage === "string") return obj.userMessage;
+  if (typeof obj.message === "string") return obj.message;
+  if (Array.isArray(obj.errors) && obj.errors.length > 0) {
+    const first = obj.errors[0] as Record<string, unknown>;
+    if (typeof first.message === "string") return first.message;
+  }
+  return undefined;
 }
 
 // --------------------------------------------------------------------------
