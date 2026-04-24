@@ -20,6 +20,8 @@ interface Props {
   projects: Project[];
   onClear: () => void;
   autoExecute?: boolean;
+  /** When provided, renders a secondary button on the completion panel that advances to the folder-permissions step. */
+  onContinueToFolders?: () => void;
 }
 
 function toQueueItem(op: CsvOperationRow): QueueItem {
@@ -30,7 +32,7 @@ function toQueueItem(op: CsvOperationRow): QueueItem {
   };
 }
 
-export default function OperationQueue({ operations, projects, onClear, autoExecute }: Props) {
+export default function OperationQueue({ operations, projects, onClear, autoExecute, onContinueToFolders }: Props) {
   const [items, setItems] = useState<QueueItem[]>(() => operations.map(toQueueItem));
   const [running, setRunning] = useState(false);
   const cancelRef = useRef(false);
@@ -412,6 +414,14 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
                 className="text-sm bg-gray-100 text-gray-700 py-1.5 px-3 rounded-md hover:bg-gray-200 font-medium"
               >
                 Download rollback CSV
+              </button>
+            )}
+            {onContinueToFolders && (
+              <button
+                onClick={onContinueToFolders}
+                className="text-sm bg-[#0696D7] text-white py-1.5 px-3 rounded-md hover:bg-[#0580BC] font-medium"
+              >
+                Grant folder permissions →
               </button>
             )}
             <button

@@ -23,6 +23,11 @@ export function middleware(req: NextRequest) {
 
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   if (!token) {
+    // API routes: return JSON so client-side fetches see a parseable error
+    // instead of HTML from the /login page.
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
     return NextResponse.redirect(new URL("/login", req.nextUrl.origin));
   }
 
@@ -31,5 +36,7 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   // Run on every request except Next.js internals and static assets.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg$).*)"],
+  // Excluding all of `_next/*` keeps HMR, RSC payloads, and static chunks
+  // out of the auth guard.
+  matcher: ["/((?!_next/|favicon.ico|.*\\.svg$).*)"],
 };

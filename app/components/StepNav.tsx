@@ -1,12 +1,11 @@
 "use client";
 
-const STEPS = ["Import Users", "User Results", "Permissions", "Preview Changes", "Permission Results"];
-
 interface Props {
-  currentStep: number; // 0-indexed
+  labels: string[];
+  currentStep: number; // 0-indexed within `labels`
 }
 
-export default function StepNav({ currentStep }: Props) {
+export default function StepNav({ labels, currentStep }: Props) {
   return (
     <nav
       className="bg-white border-b border-gray-200 sticky top-0 z-40"
@@ -14,7 +13,7 @@ export default function StepNav({ currentStep }: Props) {
     >
       <div className="max-w-screen-xl mx-auto px-6 sm:px-10 py-4 flex items-center justify-center">
         <div className="flex items-center">
-          {STEPS.map((label, idx) => {
+          {labels.map((label, idx) => {
             const done = idx < currentStep;
             const active = idx === currentStep;
 

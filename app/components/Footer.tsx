@@ -19,6 +19,17 @@ export default function Footer() {
 
       <div className="ml-auto flex items-center gap-6 text-xs text-gray-400">
         <a
+          href="mailto:support@lagarsoft.com?subject=Forma%20User%20Bulk%20Manager%20Support"
+          className="hover:text-white transition-colors flex items-center gap-1.5"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="2" y="4" width="20" height="16" rx="2" />
+            <path d="m22 7-10 5L2 7" />
+          </svg>
+          Support
+        </a>
+        <span className="text-gray-600">|</span>
+        <a
           href="https://www.linkedin.com/company/lagarsoft-llc/"
           target="_blank"
           rel="noopener noreferrer"
