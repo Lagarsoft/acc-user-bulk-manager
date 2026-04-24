@@ -87,6 +87,8 @@ export interface ProjectUser {
   status: string;
   createdAt: string;
   updatedAt: string;
+  isProjectAdmin: boolean;
+  isAccountAdmin: boolean;
 }
 
 export interface AddUsersPayload {
@@ -544,6 +546,7 @@ function extractErrorMessage(body: unknown): string | undefined {
 function normalizeUser(raw: SdkProjectUser, projectId: string): ProjectUser {
   const roleIds = raw.roleIds ?? [];
   const role = roleIds[0] ?? "";
+  const access = raw.accessLevels ?? {};
   return {
     id: raw.id ?? "",
     projectId,
@@ -555,12 +558,15 @@ function normalizeUser(raw: SdkProjectUser, projectId: string): ProjectUser {
     status: raw.status ?? "active",
     createdAt: (raw as unknown as { createdAt?: string }).createdAt ?? "",
     updatedAt: (raw as unknown as { updatedAt?: string }).updatedAt ?? "",
+    isProjectAdmin: access.projectAdmin === true,
+    isAccountAdmin: access.accountAdmin === true,
   };
 }
 
 function normalizeUserResponse(raw: ProjectUserResponse, projectId: string): ProjectUser {
   const roleIds = raw.roleIds ?? [];
   const role = roleIds[0] ?? "";
+  const access = raw.accessLevels ?? {};
   return {
     id: raw.id ?? "",
     projectId,
@@ -572,5 +578,7 @@ function normalizeUserResponse(raw: ProjectUserResponse, projectId: string): Pro
     status: raw.status ?? "active",
     createdAt: raw.addedOn ?? "",
     updatedAt: raw.updatedAt ?? "",
+    isProjectAdmin: access.projectAdmin === true,
+    isAccountAdmin: access.accountAdmin === true,
   };
 }
