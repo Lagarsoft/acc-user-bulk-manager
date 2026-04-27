@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { FolderEntry } from "@/app/lib/folder-entry";
+import { entryLabel } from "@/app/lib/folder-entry";
 import {
   PERMISSION_LEVEL_LABELS,
   type PermissionLevel,
@@ -18,7 +19,7 @@ interface Group {
   folderPath: string;
   counts: Record<PermissionLevel, number>;
   total: number;
-  emails: string[];
+  subjects: string[];
 }
 
 /**
@@ -38,13 +39,13 @@ export default function FolderPermissionPreview({ entries }: Props) {
           folderPath: e.folderPath,
           counts: { viewer: 0, downloader: 0, uploader: 0, editor: 0, manager: 0 },
           total: 0,
-          emails: [],
+          subjects: [],
         });
       }
       const g = map.get(key)!;
       g.counts[e.permission] += 1;
       g.total += 1;
-      g.emails.push(e.email);
+      g.subjects.push(entryLabel(e));
     }
     return Array.from(map.values());
   }, [entries]);

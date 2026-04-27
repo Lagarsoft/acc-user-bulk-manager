@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FolderEntry } from "@/app/lib/folder-entry";
+import { entryLabel, entryKey } from "@/app/lib/folder-entry";
 import { PERMISSION_LEVEL_LABELS } from "@/app/lib/folder-permission-levels";
 import { trackEvent } from "@/app/lib/analytics";
 
@@ -45,8 +46,6 @@ export default function FolderPermissionResults({
     trackEvent("folder_permission_run_started", { count: entries.length });
 
     try {
-      // Snapshot entries into a working copy we can mutate for the API calls,
-      // then write state back in two rounds.
       const working = entries.map((e) => ({ ...e }));
 
       // Step 1 — resolve any paths missing a folderUrn, grouped by project.
@@ -110,11 +109,16 @@ export default function FolderPermissionResults({
             accountId,
             projectId: first.projectId,
             folderUrn: first.folderUrn,
-            grants: batch.map((b) => ({ email: b.email, permission: b.permission })),
+            grants: batch.map((b) => ({
+              subjectType: b.subjectType ?? "USER",
+              email: b.email,
+              subjectId: b.companyId ?? b.roleId,
+              permission: b.permission,
+            })),
           }),
         });
         const data: {
-          results?: Array<{ email: string; status: "granted" | "error"; message?: string }>;
+          results?: Array<{ subject: string; status: "granted" | "error"; message?: string }>;
           error?: string;
         } = await res.json();
 
@@ -128,11 +132,11 @@ export default function FolderPermissionResults({
           continue;
         }
 
-        const resultByEmail = new Map<string, { status: "granted" | "error"; message?: string }>();
-        for (const r of data.results ?? []) resultByEmail.set(r.email.toLowerCase(), r);
+        const resultBySubject = new Map<string, { status: "granted" | "error"; message?: string }>();
+        for (const r of data.results ?? []) resultBySubject.set(r.subject.toLowerCase(), r);
 
         for (const row of batch) {
-          const r = resultByEmail.get(row.email.toLowerCase());
+          const r = resultBySubject.get(entryKey(row).toLowerCase());
           if (!r) {
             row.status = "error";
             row.message = "No result returned";
@@ -169,7 +173,6 @@ export default function FolderPermissionResults({
           : e,
       ),
     );
-    // let React flush then re-run
     setTimeout(() => {
       startedRef.current = true;
       void execute();
@@ -221,7 +224,8 @@ export default function FolderPermissionResults({
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
             <tr>
-              <th className="text-left px-4 py-2 font-medium">Email</th>
+              <th className="text-left px-4 py-2 font-medium">Subject</th>
+              <th className="text-left px-4 py-2 font-medium">Type</th>
               <th className="text-left px-4 py-2 font-medium">Project</th>
               <th className="text-left px-4 py-2 font-medium">Folder</th>
               <th className="text-left px-4 py-2 font-medium">Permission</th>
@@ -240,7 +244,10 @@ export default function FolderPermissionResults({
                       : ""
                 }
               >
-                <td className="px-4 py-2 truncate max-w-[14rem]">{e.email}</td>
+                <td className="px-4 py-2 truncate max-w-[14rem]">{entryLabel(e)}</td>
+                <td className="px-4 py-2">
+                  <SubjectTypeBadge type={e.subjectType ?? "USER"} />
+                </td>
                 <td className="px-4 py-2 truncate max-w-[12rem]" title={e.projectId}>
                   {e.projectName ?? e.projectId}
                 </td>
@@ -265,6 +272,20 @@ export default function FolderPermissionResults({
         </div>
       )}
     </div>
+  );
+}
+
+function SubjectTypeBadge({ type }: { type: "USER" | "COMPANY" | "ROLE" }) {
+  const styles = {
+    USER: "bg-blue-50 text-blue-700",
+    COMPANY: "bg-purple-50 text-purple-700",
+    ROLE: "bg-orange-50 text-orange-700",
+  }[type];
+  const labels = { USER: "User", COMPANY: "Company", ROLE: "Role" };
+  return (
+    <span className={`inline-block text-xs px-1.5 py-0.5 rounded ${styles}`}>
+      {labels[type]}
+    </span>
   );
 }
 

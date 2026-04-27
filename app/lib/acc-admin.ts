@@ -24,6 +24,46 @@ const dmClient = new DataManagementClient();
 const PAGE_LIMIT = 100;
 
 // --------------------------------------------------------------------------
+// Account companies
+// --------------------------------------------------------------------------
+
+export interface AccountCompany {
+  id: string;
+  name: string;
+}
+
+/**
+ * Lists all companies in a Forma/ACC account.
+ * Uses the /hq/v1 endpoint which is not covered by the SDK.
+ * Requires a 3-legged token with account:read scope.
+ */
+export async function listAccountCompanies(accountId: string, token: string): Promise<AccountCompany[]> {
+  console.log("[APS] listAccountCompanies accountId=%s", accountId);
+  const all: AccountCompany[] = [];
+  let offset = 0;
+  const limit = 100;
+
+  while (true) {
+    const url = `https://developer.api.autodesk.com/hq/v1/accounts/${accountId}/companies?limit=${limit}&offset=${offset}`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const raw = await res.text();
+    if (!res.ok) {
+      console.error("[APS] listAccountCompanies ✗ status=%d body=%s", res.status, raw);
+      throw new Error(`Failed to list companies: HTTP ${res.status}`);
+    }
+    const page = JSON.parse(raw) as Array<{ id?: string; name?: string }>;
+    for (const c of page) {
+      if (c.id && c.name) all.push({ id: c.id, name: c.name });
+    }
+    if (page.length < limit) break;
+    offset += limit;
+  }
+
+  console.log("[APS] listAccountCompanies ✓ total=%d", all.length);
+  return all.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// --------------------------------------------------------------------------
 // Project roles cache
 // --------------------------------------------------------------------------
 

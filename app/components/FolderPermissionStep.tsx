@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Hub, Project } from "@/app/lib/acc-admin";
 import type {
   FolderOperationRow,
@@ -10,11 +10,15 @@ import {
   PERMISSION_LEVEL_LABELS,
   type PermissionLevel,
 } from "@/app/lib/folder-permission-levels";
-import { type FolderEntry, newFolderEntryId } from "@/app/lib/folder-entry";
+import {
+  type FolderEntry,
+  type SubjectType,
+  newFolderEntryId,
+} from "@/app/lib/folder-entry";
 import { trackEvent } from "@/app/lib/analytics";
 import HubSelector from "@/app/components/HubSelector";
 import FolderTreePicker from "@/app/components/FolderTreePicker";
-import EmailAutocompleteTextarea from "@/app/components/EmailAutocompleteTextarea";
+import SearchableSelect from "@/app/components/SearchableSelect";
 
 /**
  * FolderPermissionStep — step 1/3 of the Folder Permissions workflow.
@@ -57,7 +61,10 @@ export default function FolderPermissionStep({
   // Manual form state
   const [pickedProject, setPickedProject] = useState<Project | null>(null);
   const [pickedFolder, setPickedFolder] = useState<{ id: string; path: string } | null>(null);
-  const [emailInput, setEmailInput] = useState("");
+  const [subjectType, setSubjectType] = useState<SubjectType>("USER");
+  const [selectedUser, setSelectedUser] = useState<{ email: string; name: string } | null>(null);
+  const [selectedCompany, setSelectedCompany] = useState<{ id: string; name: string } | null>(null);
+  const [selectedRole, setSelectedRole] = useState<{ id: string; name: string } | null>(null);
   const [permissionInput, setPermissionInput] = useState<PermissionLevel>("viewer");
   const [addError, setAddError] = useState<string | null>(null);
 
@@ -69,35 +76,64 @@ export default function FolderPermissionStep({
     trackEvent("folder_permission_mode_changed", { mode: next });
   }
 
+  function switchSubjectType(next: SubjectType) {
+    setSubjectType(next);
+    setSelectedUser(null);
+    setSelectedCompany(null);
+    setSelectedRole(null);
+    setAddError(null);
+  }
+
   function addManualEntry() {
     setAddError(null);
-    if (!pickedProject) {
-      setAddError("Pick a project first.");
-      return;
+    if (!pickedProject) { setAddError("Pick a project first."); return; }
+    if (!pickedFolder) { setAddError("Pick a folder first."); return; }
+
+    let additions: FolderEntry[] = [];
+
+    if (subjectType === "USER") {
+      if (!selectedUser) { setAddError("Select a user."); return; }
+      additions = [{
+        id: newFolderEntryId(),
+        subjectType: "USER" as const,
+        email: selectedUser.email,
+        projectId: pickedProject.id,
+        projectName: pickedProject.name,
+        folderPath: pickedFolder.path,
+        folderUrn: pickedFolder.id,
+        permission: permissionInput,
+      }];
+    } else if (subjectType === "COMPANY") {
+      if (!selectedCompany) { setAddError("Select a company."); return; }
+      additions = [{
+        id: newFolderEntryId(),
+        subjectType: "COMPANY" as const,
+        email: "",
+        companyId: selectedCompany.id,
+        companyName: selectedCompany.name,
+        projectId: pickedProject.id,
+        projectName: pickedProject.name,
+        folderPath: pickedFolder.path,
+        folderUrn: pickedFolder.id,
+        permission: permissionInput,
+      }];
+    } else if (subjectType === "ROLE") {
+      if (!selectedRole) { setAddError("Select a role."); return; }
+      additions = [{
+        id: newFolderEntryId(),
+        subjectType: "ROLE" as const,
+        email: "",
+        roleId: selectedRole.id,
+        roleName: selectedRole.name,
+        projectId: pickedProject.id,
+        projectName: pickedProject.name,
+        folderPath: pickedFolder.path,
+        folderUrn: pickedFolder.id,
+        permission: permissionInput,
+      }];
     }
-    if (!pickedFolder) {
-      setAddError("Pick a folder first.");
-      return;
-    }
-    const emails = emailInput
-      .split(/[\s,;]+/)
-      .map((e) => e.trim())
-      .filter((e) => e.length > 0);
-    if (emails.length === 0) {
-      setAddError("Enter at least one email.");
-      return;
-    }
-    const additions: FolderEntry[] = emails.map((email) => ({
-      id: newFolderEntryId(),
-      email,
-      projectId: pickedProject.id,
-      projectName: pickedProject.name,
-      folderPath: pickedFolder.path,
-      folderUrn: pickedFolder.id,
-      permission: permissionInput,
-    }));
+
     onChangeEntries([...entries, ...additions]);
-    setEmailInput("");
   }
 
   function removeEntry(id: string) {
@@ -126,6 +162,7 @@ export default function FolderPermissionStep({
 
       const imported = (data.operations ?? []).map<FolderEntry>((op) => ({
         id: newFolderEntryId(),
+        subjectType: "USER" as const,
         email: op.email,
         projectId: op.projectId,
         folderPath: op.folderPath,
@@ -203,6 +240,8 @@ export default function FolderPermissionStep({
             onPickProject={(p) => {
               setPickedProject(p);
               setPickedFolder(null);
+              setSelectedUser(null);
+              setSelectedRole(null);
             }}
             pickedFolder={pickedFolder}
             onPickFolder={setPickedFolder}
@@ -210,26 +249,68 @@ export default function FolderPermissionStep({
 
           <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3 h-fit">
             <h3 className="text-sm font-semibold">Add grants</h3>
+
+            {/* Subject type toggle */}
             <div>
-              <label className="block text-xs text-gray-600 mb-1">Emails</label>
-              <EmailAutocompleteTextarea
-                projectId={pickedProject?.id ?? null}
-                value={emailInput}
-                onChange={setEmailInput}
-                placeholder={
-                  pickedProject
-                    ? "alice@example.com, bob@example.com"
-                    : "Pick a project to load its members…"
-                }
-                rows={3}
-                disabled={!pickedProject}
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                {pickedProject
-                  ? "Only members of the selected project are suggested. Separate multiple with commas, spaces, or newlines."
-                  : "Pick a project first — folder permissions can only be granted to project members."}
-              </p>
+              <label className="block text-xs text-gray-600 mb-1">Grant to</label>
+              <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                {(["USER", "COMPANY", "ROLE"] as SubjectType[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => switchSubjectType(t)}
+                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      subjectType === t
+                        ? "bg-white text-gray-800 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    {t === "USER" ? "User" : t === "COMPANY" ? "Company" : "Role"}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Subject input — varies by type */}
+            {subjectType === "USER" && (
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">User</label>
+                <UserPicker
+                  projectId={pickedProject?.id ?? null}
+                  selected={selectedUser}
+                  onSelect={setSelectedUser}
+                />
+                {!pickedProject && (
+                  <p className="text-xs text-gray-400 mt-1">Pick a project first to load its members.</p>
+                )}
+              </div>
+            )}
+
+            {subjectType === "COMPANY" && (
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Company</label>
+                <CompanyPicker
+                  accountId={accountId}
+                  selected={selectedCompany}
+                  onSelect={setSelectedCompany}
+                />
+              </div>
+            )}
+
+            {subjectType === "ROLE" && (
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Role</label>
+                <RolePicker
+                  projectId={pickedProject?.id ?? null}
+                  selected={selectedRole}
+                  onSelect={setSelectedRole}
+                />
+                {!pickedProject && (
+                  <p className="text-xs text-gray-400 mt-1">Pick a project first to load its roles.</p>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-xs text-gray-600 mb-1">Permission</label>
               <select
@@ -244,6 +325,7 @@ export default function FolderPermissionStep({
                 ))}
               </select>
             </div>
+
             {pickedProject && pickedFolder && (
               <div className="text-xs text-gray-500 bg-gray-50 rounded-md p-2">
                 <div className="truncate">
@@ -254,6 +336,7 @@ export default function FolderPermissionStep({
                 </div>
               </div>
             )}
+
             {addError && <p className="text-xs text-red-500">{addError}</p>}
             <button
               type="button"
@@ -308,7 +391,8 @@ export default function FolderPermissionStep({
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
               <tr>
-                <th className="text-left px-4 py-2 font-medium">Email</th>
+                <th className="text-left px-4 py-2 font-medium">Subject</th>
+                <th className="text-left px-4 py-2 font-medium">Type</th>
                 <th className="text-left px-4 py-2 font-medium">Project</th>
                 <th className="text-left px-4 py-2 font-medium">Folder</th>
                 <th className="text-left px-4 py-2 font-medium">Permission</th>
@@ -318,7 +402,26 @@ export default function FolderPermissionStep({
             <tbody className="divide-y divide-gray-100">
               {entries.map((e) => (
                 <tr key={e.id} className="text-sm">
-                  <td className="px-4 py-2 truncate max-w-[14rem]">{e.email}</td>
+                  <td className="px-4 py-2 truncate max-w-[14rem]">
+                    {e.subjectType === "COMPANY"
+                      ? e.companyName
+                      : e.subjectType === "ROLE"
+                        ? e.roleName
+                        : e.email}
+                  </td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded ${
+                        e.subjectType === "COMPANY"
+                          ? "bg-purple-50 text-purple-700"
+                          : e.subjectType === "ROLE"
+                            ? "bg-orange-50 text-orange-700"
+                            : "bg-blue-50 text-blue-700"
+                      }`}
+                    >
+                      {e.subjectType === "COMPANY" ? "Company" : e.subjectType === "ROLE" ? "Role" : "User"}
+                    </span>
+                  </td>
                   <td className="px-4 py-2 truncate max-w-[12rem]" title={e.projectId}>
                     {e.projectName ?? e.projectId}
                   </td>
@@ -490,5 +593,170 @@ function ManualProjectFolderPicker({
         </div>
       )}
     </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// User picker
+// --------------------------------------------------------------------------
+
+interface UserPickerProps {
+  projectId: string | null;
+  selected: { email: string; name: string } | null;
+  onSelect: (u: { email: string; name: string } | null) => void;
+}
+
+function UserPicker({ projectId, selected, onSelect }: UserPickerProps) {
+  const [users, setUsers] = useState<{ email: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!projectId) { setUsers([]); return; }
+    setLoading(true);
+    setError(null);
+    fetch(`/api/projects/${encodeURIComponent(projectId)}/users`)
+      .then(async (res) => {
+        const data: {
+          users?: { email: string; firstName: string; lastName: string; isProjectAdmin: boolean; isAccountAdmin: boolean }[];
+          error?: string;
+        } = await res.json();
+        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+        const grantable = (data.users ?? [])
+          .filter((u) => !u.isProjectAdmin && !u.isAccountAdmin)
+          .map((u) => ({
+            email: u.email,
+            name: `${u.firstName} ${u.lastName}`.trim() || u.email,
+          }));
+        setUsers(grantable);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load users"))
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  if (!projectId) return null;
+
+  if (loading) {
+    return (
+      <p className="text-xs text-gray-400 flex items-center gap-1">
+        <span className="w-3 h-3 border-2 border-[#0696D7] border-t-transparent rounded-full animate-spin" />
+        Loading users…
+      </p>
+    );
+  }
+  if (error) return <p className="text-xs text-red-500">{error}</p>;
+
+  return (
+    <SearchableSelect
+      options={users.map((u) => ({ value: u.email, label: `${u.name} (${u.email})` }))}
+      value={selected?.email ?? ""}
+      onChange={(v) => onSelect(users.find((u) => u.email === v) ?? null)}
+      placeholder={users.length === 0 ? "No grantable users" : "Select a user…"}
+      disabled={users.length === 0}
+    />
+  );
+}
+
+// --------------------------------------------------------------------------
+// Company picker
+// --------------------------------------------------------------------------
+
+interface CompanyPickerProps {
+  accountId: string | null;
+  selected: { id: string; name: string } | null;
+  onSelect: (c: { id: string; name: string } | null) => void;
+}
+
+function CompanyPicker({ accountId, selected, onSelect }: CompanyPickerProps) {
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!accountId) return;
+    setLoading(true);
+    setError(null);
+    fetch(`/api/companies?accountId=${encodeURIComponent(accountId)}`)
+      .then(async (res) => {
+        const data: { companies?: { id: string; name: string }[]; error?: string } = await res.json();
+        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+        setCompanies(data.companies ?? []);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load companies"))
+      .finally(() => setLoading(false));
+  }, [accountId]);
+
+  if (!accountId) return null;
+
+  if (loading) {
+    return (
+      <p className="text-xs text-gray-400 flex items-center gap-1">
+        <span className="w-3 h-3 border-2 border-[#0696D7] border-t-transparent rounded-full animate-spin" />
+        Loading companies…
+      </p>
+    );
+  }
+  if (error) return <p className="text-xs text-red-500">{error}</p>;
+
+  return (
+    <SearchableSelect
+      options={companies.map((c) => ({ value: c.id, label: c.name }))}
+      value={selected?.id ?? ""}
+      onChange={(v) => onSelect(companies.find((c) => c.id === v) ?? null)}
+      placeholder={companies.length === 0 ? "No companies found" : "Select a company…"}
+      disabled={companies.length === 0}
+    />
+  );
+}
+
+// --------------------------------------------------------------------------
+// Role picker
+// --------------------------------------------------------------------------
+
+interface RolePickerProps {
+  projectId: string | null;
+  selected: { id: string; name: string } | null;
+  onSelect: (r: { id: string; name: string } | null) => void;
+}
+
+function RolePicker({ projectId, selected, onSelect }: RolePickerProps) {
+  const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!projectId) { setRoles([]); return; }
+    setLoading(true);
+    setError(null);
+    fetch(`/api/projects/${encodeURIComponent(projectId)}/roles`)
+      .then(async (res) => {
+        const data: { roles?: { id: string; name: string }[]; error?: string } = await res.json();
+        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+        setRoles(data.roles ?? []);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load roles"))
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  if (!projectId) return null;
+
+  if (loading) {
+    return (
+      <p className="text-xs text-gray-400 flex items-center gap-1">
+        <span className="w-3 h-3 border-2 border-[#0696D7] border-t-transparent rounded-full animate-spin" />
+        Loading roles…
+      </p>
+    );
+  }
+  if (error) return <p className="text-xs text-red-500">{error}</p>;
+
+  return (
+    <SearchableSelect
+      options={roles.map((r) => ({ value: r.id, label: r.name }))}
+      value={selected?.id ?? ""}
+      onChange={(v) => onSelect(roles.find((r) => r.id === v) ?? null)}
+      placeholder={roles.length === 0 ? "No roles found" : "Select a role…"}
+      disabled={roles.length === 0}
+    />
   );
 }
