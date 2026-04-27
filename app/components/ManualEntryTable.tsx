@@ -1,25 +1,12 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import type { Project, AccRole, AccountUser } from "@/app/lib/acc-admin";
+import type { Project, AccRole, AccountUser, ProjectRole } from "@/app/lib/acc-admin";
 import type { CsvOperationRow, CsvAction } from "@/app/lib/csv-parser";
 
 // --------------------------------------------------------------------------
 // Constants
 // --------------------------------------------------------------------------
-
-const ROLES: { value: AccRole; label: string }[] = [
-  { value: "member",          label: "Member" },
-  { value: "admin",           label: "Admin" },
-  { value: "project_admin",   label: "Project Admin" },
-  { value: "project_manager", label: "Project Manager" },
-  { value: "executive",       label: "Executive" },
-  { value: "editor",          label: "Editor" },
-  { value: "viewer",          label: "Viewer" },
-  { value: "gc_foreman",      label: "GC Foreman" },
-  { value: "gc_manager",      label: "GC Manager" },
-  { value: "owner",           label: "Owner" },
-];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -65,6 +52,10 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
       lastName: op.lastName ?? "",
     }));
   });
+
+  // Project roles cache: projectId → roles fetched from /api/projects/:id/roles
+  const [projectRoles, setProjectRoles] = useState<Record<string, ProjectRole[]>>({});
+  const [rolesLoading, setRolesLoading] = useState<Record<string, boolean>>({});
 
   // Project picker
   const [openProjectPicker, setOpenProjectPicker] = useState<number | null>(null);
@@ -117,13 +108,46 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
   }, [rows, onResult]);
 
   // --------------------------------------------------------------------------
+  // Roles fetching
+  // --------------------------------------------------------------------------
+
+  function fetchRolesForProject(projectId: string) {
+    if (projectRoles[projectId] || rolesLoading[projectId]) return;
+    console.log("[ManualEntryTable] fetching roles for project", projectId);
+    setRolesLoading((prev) => ({ ...prev, [projectId]: true }));
+    fetch(`/api/projects/${encodeURIComponent(projectId)}/roles`)
+      .then(async (res) => {
+        const data: { roles?: ProjectRole[]; error?: string } = await res.json();
+        if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+        console.log("[ManualEntryTable] roles fetched for project", projectId, data.roles);
+        setProjectRoles((prev) => ({ ...prev, [projectId]: data.roles ?? [] }));
+      })
+      .catch((err) => console.error("[ManualEntryTable] failed to fetch roles", projectId, err))
+      .finally(() =>
+        setRolesLoading((prev) => {
+          const n = { ...prev };
+          delete n[projectId];
+          return n;
+        }),
+      );
+  }
+
+  // Prefetch roles for rows already populated (e.g. restored from initialOps)
+  useEffect(() => {
+    rows.forEach((r) => {
+      if (r.projectId) fetchRolesForProject(r.projectId);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // --------------------------------------------------------------------------
   // Row mutations
   // --------------------------------------------------------------------------
 
   function addRow() {
     setRows((prev) => [
       ...prev,
-      { id: nextRowId++, action: "add", email: "", role: "member", projectId: "", projectName: "", firstName: "", lastName: "" },
+      { id: nextRowId++, action: "add", email: "", role: "" as AccRole, projectId: "", projectName: "", firstName: "", lastName: "" },
     ]);
   }
 
@@ -186,6 +210,7 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
     setProjectQuery("");
     setProjectResults([]);
     onProjectCached?.(project);
+    fetchRolesForProject(project.id);
   }
 
   // --------------------------------------------------------------------------
@@ -274,16 +299,16 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
           <colgroup>
             <col className="w-[15%]" />
             <col className="w-[28%]" />
-            <col className="w-[16%]" />
             <col className="w-[34%]" />
+            <col className="w-[16%]" />
             <col className="w-10" />
           </colgroup>
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
             <tr>
               <th className="py-2 px-4 text-left font-medium">Action</th>
               <th className="py-2 px-4 text-left font-medium">Email</th>
-              <th className="py-2 px-4 text-left font-medium">Role</th>
               <th className="py-2 px-4 text-left font-medium">Project</th>
+              <th className="py-2 px-4 text-left font-medium">Role</th>
               <th className="py-2 px-4" />
             </tr>
           </thead>
@@ -307,7 +332,7 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
                         const action = e.target.value as CsvAction;
                         updateRow(row.id, {
                           action,
-                          role: action === "remove" ? ("" as AccRole) : row.role || "member",
+                          role: action === "remove" ? ("" as AccRole) : row.role,
                         });
                       }}
                       className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white w-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0696D7]"
@@ -377,24 +402,6 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
                     </div>
                   </td>
 
-                  {/* Role */}
-                  <td className="px-3 py-2.5">
-                    <select
-                      value={row.role}
-                      disabled={row.action === "remove"}
-                      onChange={(e) => updateRow(row.id, { role: e.target.value as AccRole })}
-                      className={`text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white w-full focus:outline-none focus:ring-2 focus:ring-[#0696D7] ${
-                        row.action === "remove" ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
-                      }`}
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r.value} value={r.value}>
-                          {r.label}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-
                   {/* Project + search picker */}
                   <td className="px-3 py-2.5">
                     <div className="relative">
@@ -457,6 +464,36 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
                         </div>
                       )}
                     </div>
+                  </td>
+
+                  {/* Role */}
+                  <td className="px-3 py-2.5">
+                    {(() => {
+                      const isLoadingRoles = !!row.projectId && !!rolesLoading[row.projectId];
+                      const availableRoles = row.projectId ? projectRoles[row.projectId] : undefined;
+                      const noProject = !row.projectId;
+                      const noRoles = !noProject && !isLoadingRoles && (!availableRoles || availableRoles.length === 0);
+                      const isDisabled = row.action === "remove" || isLoadingRoles || noProject || noRoles;
+                      return (
+                        <select
+                          value={row.role}
+                          disabled={isDisabled}
+                          onChange={(e) => updateRow(row.id, { role: e.target.value as AccRole })}
+                          className={`text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white w-full focus:outline-none focus:ring-2 focus:ring-[#0696D7] ${
+                            isDisabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
+                          }`}
+                        >
+                          {isLoadingRoles && <option value="">Loading…</option>}
+                          {noProject && <option value="">Select a project first</option>}
+                          {noRoles && <option value="">No roles found</option>}
+                          {!isLoadingRoles && availableRoles && availableRoles.map((r) => (
+                            <option key={r.id} value={r.name.toLowerCase()}>
+                              {r.name}
+                            </option>
+                          ))}
+                        </select>
+                      );
+                    })()}
                   </td>
 
                   {/* Delete */}

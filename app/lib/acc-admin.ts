@@ -24,6 +24,104 @@ const dmClient = new DataManagementClient();
 const PAGE_LIMIT = 100;
 
 // --------------------------------------------------------------------------
+// Project roles cache
+// --------------------------------------------------------------------------
+
+export interface ProjectRole {
+  id: string;
+  name: string;
+}
+
+// In-process cache keyed by projectId — refreshed every 5 minutes.
+const _roleCache = new Map<string, { roles: ProjectRole[]; ts: number }>();
+const ROLE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Returns the available roles for a project.
+ *
+ * Primary source: GET /hq/v2/projects/{projectId}/industry_roles (BIM360 endpoint
+ * that works for ACC projects in practice). Falls back to extracting roles from
+ * existing project members if the primary source fails or returns nothing.
+ */
+export async function listProjectRoles(projectId: string, token: string): Promise<ProjectRole[]> {
+  const cached = _roleCache.get(projectId);
+  if (cached && Date.now() - cached.ts < ROLE_CACHE_TTL_MS) {
+    console.log("[APS] listProjectRoles cache HIT projectId=%s roles=%j", projectId, cached.roles);
+    return cached.roles;
+  }
+
+  console.log("[APS] listProjectRoles projectId=%s — fetching from industry_roles endpoint", projectId);
+  const roles = new Map<string, ProjectRole>();
+
+  try {
+    const url = `https://developer.api.autodesk.com/hq/v2/projects/${encodeURIComponent(projectId)}/industry_roles`;
+    console.log("[APS] listProjectRoles GET %s", url);
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    console.log("[APS] listProjectRoles industry_roles status=%d", res.status);
+    const rawBody = await res.text();
+    console.log("[APS] listProjectRoles industry_roles body=%s", rawBody);
+    if (res.ok) {
+      const data = JSON.parse(rawBody) as { roles?: { id: string; name: string }[] };
+      for (const r of data.roles ?? []) {
+        if (r.id && r.name) roles.set(r.id, { id: r.id, name: r.name });
+      }
+      console.log("[APS] listProjectRoles industry_roles found %d roles", roles.size);
+    }
+  } catch (err) {
+    console.error("[APS] listProjectRoles industry_roles error:", err);
+  }
+
+  if (roles.size === 0) {
+    console.log("[APS] listProjectRoles falling back to extracting roles from project users projectId=%s", projectId);
+    try {
+      const page = await adminClient.getProjectUsers(projectId, {
+        limit: PAGE_LIMIT,
+        accessToken: token,
+      });
+      for (const u of page.results ?? []) {
+        for (const r of (u as SdkProjectUser).roles ?? []) {
+          if (r.id && r.name) roles.set(r.id, { id: r.id, name: r.name });
+        }
+      }
+      console.log("[APS] listProjectRoles fallback found %d unique roles from %d users", roles.size, page.results?.length ?? 0);
+    } catch (err) {
+      console.error("[APS] listProjectRoles fallback error:", err);
+    }
+  }
+
+  const result = [...roles.values()];
+  console.log("[APS] listProjectRoles result projectId=%s roles=%j", projectId, result);
+  _roleCache.set(projectId, { roles: result, ts: Date.now() });
+  return result;
+}
+
+/**
+ * Resolves a role name (e.g. "member") to its project-specific UUID.
+ * If the value already looks like a UUID it is returned as-is.
+ * Falls back to the original string if no match is found.
+ */
+async function resolveRoleId(roleName: string, projectId: string, token: string): Promise<string> {
+  console.log("[APS] resolveRoleId roleName=%s projectId=%s", roleName, projectId);
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(roleName)) {
+    console.log("[APS] resolveRoleId already a UUID — returning as-is");
+    return roleName;
+  }
+  const roles = await listProjectRoles(projectId, token);
+  const normalized = roleName.toLowerCase();
+  const match = roles.find(
+    (r) =>
+      r.name.toLowerCase() === normalized ||
+      r.name.toLowerCase().replace(/[\s-]+/g, "_") === normalized,
+  );
+  if (match) {
+    console.log("[APS] resolveRoleId matched role=%s → id=%s", roleName, match.id);
+    return match.id;
+  }
+  console.warn("[APS] resolveRoleId: no UUID found for role=%s in projectId=%s — sending as-is. Available roles=%j", roleName, projectId, roles);
+  return roleName;
+}
+
+// --------------------------------------------------------------------------
 // Internal models
 // --------------------------------------------------------------------------
 
@@ -280,18 +378,29 @@ export async function addProjectUsers(
   token: string,
 ): Promise<ProjectUser[]> {
   console.log("[APS] addProjectUsers → AdminClient.importProjectUsers projectId=%s count=%d", projectId, users.length);
-  await adminClient.importProjectUsers(
-    projectId,
-    {
-      users: users.map((u) => ({
-        email: u.email,
-        firstName: u.firstName,
-        lastName: u.lastName,
-        products: [],
-      })),
-    },
-    { accessToken: token },
+  console.log("[APS] addProjectUsers input users=%j", users);
+
+  // Resolve unique role names to project-specific UUIDs upfront.
+  const uniqueRoleNames = [...new Set(users.map((u) => u.role).filter(Boolean))];
+  console.log("[APS] addProjectUsers unique role names to resolve=%j", uniqueRoleNames);
+  const roleIdEntries = await Promise.all(
+    uniqueRoleNames.map(async (name) => [name, await resolveRoleId(name, projectId, token)] as const),
   );
+  const roleIdMap = Object.fromEntries(roleIdEntries);
+  console.log("[APS] addProjectUsers roleIdMap=%j", roleIdMap);
+
+  const importPayload = {
+    users: users.map((u) => ({
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      products: [],
+      ...(u.role ? { roleIds: [roleIdMap[u.role] ?? u.role] } : {}),
+    })),
+  };
+  console.log("[APS] addProjectUsers importPayload=%j", importPayload);
+
+  await adminClient.importProjectUsers(projectId, importPayload, { accessToken: token });
 
   console.log("[APS] addProjectUsers ✓ import submitted");
   return [];
@@ -306,15 +415,18 @@ export async function updateProjectUser(
   payload: UpdateUserPayload,
   token: string,
 ): Promise<ProjectUser> {
-  console.log("[APS] updateProjectUser → AdminClient.updateProjectUser projectId=%s userId=%s role=%s", projectId, userId, payload.role);
+  const roleId = await resolveRoleId(payload.role, projectId, token);
+  const updatePayload = { roleIds: [roleId] };
+  console.log("[APS] updateProjectUser → AdminClient.updateProjectUser projectId=%s userId=%s role=%s roleId=%s", projectId, userId, payload.role, roleId);
+  console.log("[APS] updateProjectUser payload=%j", updatePayload);
   const response = await adminClient.updateProjectUser(
     projectId,
     userId,
-    { roleIds: [payload.role] },
+    updatePayload,
     { accessToken: token },
   );
 
-  console.log("[APS] updateProjectUser ✓");
+  console.log("[APS] updateProjectUser ✓ response=%j", response);
   return normalizeUserResponse(response, projectId);
 }
 
@@ -544,8 +656,9 @@ function extractErrorMessage(body: unknown): string | undefined {
 // --------------------------------------------------------------------------
 
 function normalizeUser(raw: SdkProjectUser, projectId: string): ProjectUser {
-  const roleIds = raw.roleIds ?? [];
-  const role = roleIds[0] ?? "";
+  // Prefer the human-readable name from roles[0].name so the UI can display it
+  // correctly. Fall back to the UUID from roleIds[0] if no name is available.
+  const role = (raw.roles?.[0]?.name ?? "").toLowerCase() || (raw.roleIds?.[0] ?? "");
   const access = raw.accessLevels ?? {};
   return {
     id: raw.id ?? "",
@@ -564,8 +677,7 @@ function normalizeUser(raw: SdkProjectUser, projectId: string): ProjectUser {
 }
 
 function normalizeUserResponse(raw: ProjectUserResponse, projectId: string): ProjectUser {
-  const roleIds = raw.roleIds ?? [];
-  const role = roleIds[0] ?? "";
+  const role = (raw.roles?.[0]?.name ?? "").toLowerCase() || (raw.roleIds?.[0] ?? "");
   const access = raw.accessLevels ?? {};
   return {
     id: raw.id ?? "",
