@@ -63,6 +63,38 @@ export async function listAccountCompanies(accountId: string, token: string): Pr
   return all.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * Lists companies that are members of a specific project.
+ * Only these companies can receive folder-permission grants — Autodesk rejects
+ * grants for companies that aren't in the project.
+ * Requires a 2-legged token.
+ */
+export async function listProjectCompanies(accountId: string, projectId: string, token: string): Promise<AccountCompany[]> {
+  console.log("[APS] listProjectCompanies accountId=%s projectId=%s", accountId, projectId);
+  const all: AccountCompany[] = [];
+  let offset = 0;
+  const limit = 100;
+
+  while (true) {
+    const url = `https://developer.api.autodesk.com/hq/v1/accounts/${accountId}/projects/${projectId}/companies?limit=${limit}&offset=${offset}`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const raw = await res.text();
+    if (!res.ok) {
+      console.error("[APS] listProjectCompanies ✗ status=%d body=%s", res.status, raw);
+      throw new Error(`Failed to list project companies: HTTP ${res.status}`);
+    }
+    const page = JSON.parse(raw) as Array<{ id?: string; name?: string }>;
+    for (const c of page) {
+      if (c.id && c.name) all.push({ id: c.id, name: c.name });
+    }
+    if (page.length < limit) break;
+    offset += limit;
+  }
+
+  console.log("[APS] listProjectCompanies ✓ total=%d", all.length);
+  return all.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 // --------------------------------------------------------------------------
 // Project roles cache
 // --------------------------------------------------------------------------

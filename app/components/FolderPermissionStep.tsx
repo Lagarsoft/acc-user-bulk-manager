@@ -241,6 +241,7 @@ export default function FolderPermissionStep({
               setPickedProject(p);
               setPickedFolder(null);
               setSelectedUser(null);
+              setSelectedCompany(null);
               setSelectedRole(null);
             }}
             pickedFolder={pickedFolder}
@@ -290,10 +291,14 @@ export default function FolderPermissionStep({
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Company</label>
                 <CompanyPicker
+                  projectId={pickedProject?.id ?? null}
                   accountId={accountId}
                   selected={selectedCompany}
                   onSelect={setSelectedCompany}
                 />
+                {!pickedProject && (
+                  <p className="text-xs text-gray-400 mt-1">Pick a project first to load its companies.</p>
+                )}
               </div>
             )}
 
@@ -662,21 +667,22 @@ function UserPicker({ projectId, selected, onSelect }: UserPickerProps) {
 // --------------------------------------------------------------------------
 
 interface CompanyPickerProps {
+  projectId: string | null;
   accountId: string | null;
   selected: { id: string; name: string } | null;
   onSelect: (c: { id: string; name: string } | null) => void;
 }
 
-function CompanyPicker({ accountId, selected, onSelect }: CompanyPickerProps) {
+function CompanyPicker({ projectId, accountId, selected, onSelect }: CompanyPickerProps) {
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!accountId) return;
+    if (!projectId || !accountId) { setCompanies([]); return; }
     setLoading(true);
     setError(null);
-    fetch(`/api/companies?accountId=${encodeURIComponent(accountId)}`)
+    fetch(`/api/projects/${encodeURIComponent(projectId)}/companies?accountId=${encodeURIComponent(accountId)}`)
       .then(async (res) => {
         const data: { companies?: { id: string; name: string }[]; error?: string } = await res.json();
         if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
@@ -684,9 +690,9 @@ function CompanyPicker({ accountId, selected, onSelect }: CompanyPickerProps) {
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load companies"))
       .finally(() => setLoading(false));
-  }, [accountId]);
+  }, [projectId, accountId]);
 
-  if (!accountId) return null;
+  if (!projectId) return null;
 
   if (loading) {
     return (
