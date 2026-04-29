@@ -2,7 +2,7 @@
  * CSV import parser for bulk user operations.
  *
  * Required columns: email, project_id, action
- * Required for add/update: role
+ * Required for add/update: role (semicolon-separated for multiple, e.g. "administrator;member")
  * Optional columns: first_name, last_name
  *
  * If the `action` column is absent the row defaults to "add" for
@@ -27,7 +27,7 @@ export interface CsvOperationRow {
   /** Human-readable project name — populated when the user picks via search; absent for CSV uploads. */
   projectName?: string;
   email: string;
-  role: AccRole;
+  roles: AccRole[];
   firstName: string;
   lastName: string;
 }
@@ -155,7 +155,13 @@ export function parseCsv(csvText: string): CsvParseResult {
     const fields = parseLine(line);
 
     const email = fields[col.email] ?? "";
-    const role = col.role >= 0 ? (fields[col.role] ?? "").toLowerCase() : "";
+    const roles =
+      col.role >= 0
+        ? (fields[col.role] ?? "")
+            .split(/[;,]/)
+            .map((s) => s.trim().toLowerCase())
+            .filter(Boolean) as AccRole[]
+        : ([] as AccRole[]);
     const projectId = fields[col.project_id] ?? "";
     const rawAction = col.action >= 0 ? (fields[col.action] ?? "").toLowerCase() : "";
     const action = (rawAction || "add") as CsvAction;
@@ -184,7 +190,7 @@ export function parseCsv(csvText: string): CsvParseResult {
 
     // role is required for add and update, not for remove
     if (action !== "remove") {
-      if (!role) {
+      if (roles.length === 0) {
         rowErrors.push({ rowNumber, field: "role", message: "role is required for add/update" });
       }
     }
@@ -205,7 +211,7 @@ export function parseCsv(csvText: string): CsvParseResult {
         action,
         projectId,
         email,
-        role: role as AccRole,
+        roles,
         firstName,
         lastName,
       });

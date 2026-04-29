@@ -257,7 +257,7 @@ function OpRow({ op }: { op: DryRunOperationResult }) {
         <ActionBadge action={op.action} />
       </td>
       <td className="px-4 py-2 text-gray-900">{op.email}</td>
-      <td className="px-4 py-2 text-gray-700">{op.role || "—"}</td>
+      <td className="px-4 py-2 text-gray-700">{op.roles.length > 0 ? op.roles.join(", ") : "—"}</td>
       <td className="px-4 py-2">
         {op.issue ? (
           <span

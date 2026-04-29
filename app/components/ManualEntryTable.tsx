@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { Project, AccRole, AccountUser, ProjectRole } from "@/app/lib/acc-admin";
 import type { CsvOperationRow, CsvAction } from "@/app/lib/csv-parser";
+import RoleMultiSelect from "@/app/components/RoleMultiSelect";
 
 // --------------------------------------------------------------------------
 // Constants
@@ -18,7 +19,7 @@ interface ManualRow {
   id: number;
   action: CsvAction;
   email: string;
-  role: AccRole;
+  roles: AccRole[];
   projectId: string;
   projectName: string;
   firstName: string;
@@ -45,7 +46,7 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
       id: nextRowId++,
       action: op.action,
       email: op.email,
-      role: op.role as AccRole,
+      roles: op.roles,
       projectId: op.projectId,
       projectName: op.projectName ?? "",
       firstName: op.firstName ?? "",
@@ -91,7 +92,7 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
       .filter((r) => {
         if (!EMAIL_RE.test(r.email)) return false;
         if (!r.projectId) return false;
-        if (r.action !== "remove" && !r.role) return false;
+        if (r.action !== "remove" && r.roles.length === 0) return false;
         return true;
       })
       .map((r, i) => ({
@@ -100,7 +101,7 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
         projectId: r.projectId,
         projectName: r.projectName || undefined,
         email: r.email,
-        role: r.role,
+        roles: r.roles,
         firstName: r.firstName,
         lastName: r.lastName,
       }));
@@ -140,19 +141,6 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When roles finish loading for a project, auto-populate any row that has
-  // that project selected but no role yet (avoids the controlled-select visual
-  // mismatch where the browser shows the first option but value stays "").
-  useEffect(() => {
-    setRows((prev) =>
-      prev.map((row) => {
-        if (!row.projectId || row.role) return row;
-        const roles = projectRoles[row.projectId];
-        if (!roles || roles.length === 0) return row;
-        return { ...row, role: roles[0].name.toLowerCase() as AccRole };
-      }),
-    );
-  }, [projectRoles]);
 
   // --------------------------------------------------------------------------
   // Row mutations
@@ -161,7 +149,7 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
   function addRow() {
     setRows((prev) => [
       ...prev,
-      { id: nextRowId++, action: "add", email: "", role: "" as AccRole, projectId: "", projectName: "", firstName: "", lastName: "" },
+      { id: nextRowId++, action: "add", email: "", roles: [] as AccRole[], projectId: "", projectName: "", firstName: "", lastName: "" },
     ]);
   }
 
@@ -219,10 +207,7 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
   }
 
   function pickProject(rowId: number, project: Project) {
-    const cached = projectRoles[project.id];
-    const defaultRole =
-      cached && cached.length > 0 ? (cached[0].name.toLowerCase() as AccRole) : ("" as AccRole);
-    updateRow(rowId, { projectId: project.id, projectName: project.name, role: defaultRole });
+    updateRow(rowId, { projectId: project.id, projectName: project.name, roles: [] });
     setOpenProjectPicker(null);
     setProjectQuery("");
     setProjectResults([]);
@@ -286,7 +271,7 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
   function rowIsValid(r: ManualRow): boolean {
     if (!EMAIL_RE.test(r.email)) return false;
     if (!r.projectId) return false;
-    if (r.action !== "remove" && !r.role) return false;
+    if (r.action !== "remove" && r.roles.length === 0) return false;
     return true;
   }
 
@@ -349,7 +334,7 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
                         const action = e.target.value as CsvAction;
                         updateRow(row.id, {
                           action,
-                          role: action === "remove" ? ("" as AccRole) : row.role,
+                          roles: action === "remove" ? [] : row.roles,
                         });
                       }}
                       className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white w-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0696D7]"
@@ -485,32 +470,13 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
 
                   {/* Role */}
                   <td className="px-3 py-2.5">
-                    {(() => {
-                      const isLoadingRoles = !!row.projectId && !!rolesLoading[row.projectId];
-                      const availableRoles = row.projectId ? projectRoles[row.projectId] : undefined;
-                      const noProject = !row.projectId;
-                      const noRoles = !noProject && !isLoadingRoles && (!availableRoles || availableRoles.length === 0);
-                      const isDisabled = row.action === "remove" || isLoadingRoles || noProject || noRoles;
-                      return (
-                        <select
-                          value={row.role}
-                          disabled={isDisabled}
-                          onChange={(e) => updateRow(row.id, { role: e.target.value as AccRole })}
-                          className={`text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white w-full focus:outline-none focus:ring-2 focus:ring-[#0696D7] ${
-                            isDisabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
-                          }`}
-                        >
-                          {isLoadingRoles && <option value="">Loading…</option>}
-                          {noProject && <option value="">Select a project first</option>}
-                          {noRoles && <option value="">No roles found</option>}
-                          {!isLoadingRoles && availableRoles && availableRoles.map((r) => (
-                            <option key={r.id} value={r.name.toLowerCase()}>
-                              {r.name}
-                            </option>
-                          ))}
-                        </select>
-                      );
-                    })()}
+                    <RoleMultiSelect
+                      selected={row.roles}
+                      availableRoles={row.projectId ? (projectRoles[row.projectId] ?? []) : []}
+                      loading={!!row.projectId && !!rolesLoading[row.projectId]}
+                      disabled={row.action === "remove" || !row.projectId}
+                      onChange={(roles) => updateRow(row.id, { roles })}
+                    />
                   </td>
 
                   {/* Delete */}

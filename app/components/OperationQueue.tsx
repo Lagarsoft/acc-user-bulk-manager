@@ -83,7 +83,7 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
             users: [
               {
                 email: op.email,
-                role: op.role,
+                roles: op.roles,
                 ...(op.firstName ? { firstName: op.firstName } : {}),
                 ...(op.lastName ? { lastName: op.lastName } : {}),
               },
@@ -118,7 +118,7 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: op.role }),
+          body: JSON.stringify({ roles: op.roles }),
         },
       );
       if (!res.ok) {
@@ -249,7 +249,7 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
           q(item.email),
           q(item.projectId),
           rollbackAction,
-          q(item.role ?? ""),
+          q(item.roles.join(";")),
           q(item.firstName ?? ""),
           q(item.lastName ?? ""),
         ].join(","),
@@ -482,7 +482,7 @@ export default function OperationQueue({ operations, projects, onClear, autoExec
                     <ActionBadge action={item.action} />
                   </td>
                   <td className="px-4 py-2 text-gray-900">{item.email}</td>
-                  <td className="px-4 py-2 text-gray-700">{item.role || "—"}</td>
+                  <td className="px-4 py-2 text-gray-700">{item.roles.length > 0 ? item.roles.join(", ") : "—"}</td>
                   <td className="px-4 py-2 text-gray-500">
                     {projectNames[item.projectId] ?? item.projectId}
                   </td>

@@ -9,7 +9,7 @@ export interface DryRunOperationResult {
   rowNumber: number;
   action: CsvAction;
   email: string;
-  role: string;
+  roles: string[];
   firstName: string;
   lastName: string;
   /** false only when an error blocks execution (e.g. user not found for update). */

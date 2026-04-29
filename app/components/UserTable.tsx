@@ -17,7 +17,7 @@ const ROLE_OPTIONS: { value: string; label: string }[] = [
   { value: "viewer", label: "Viewer" },
 ];
 
-type SortField = "email" | "firstName" | "lastName" | "roleLabel" | "project";
+type SortField = "email" | "firstName" | "lastName" | "roleLabels" | "project";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -61,7 +61,7 @@ export default function UserTable({ users, projects, onRoleUpdate }: Props) {
         u.email.toLowerCase().includes(q) ||
         u.firstName.toLowerCase().includes(q) ||
         u.lastName.toLowerCase().includes(q) ||
-        u.roleLabel.toLowerCase().includes(q) ||
+        u.roleLabels.join(" ").toLowerCase().includes(q) ||
         project.toLowerCase().includes(q)
       );
     });
@@ -72,11 +72,15 @@ export default function UserTable({ users, projects, onRoleUpdate }: Props) {
       const av =
         sortField === "project"
           ? (projectNames[a.projectId] ?? a.projectId)
-          : (a[sortField] as string);
+          : sortField === "roleLabels"
+            ? a.roleLabels.join(", ")
+            : (a[sortField] as string);
       const bv =
         sortField === "project"
           ? (projectNames[b.projectId] ?? b.projectId)
-          : (b[sortField] as string);
+          : sortField === "roleLabels"
+            ? b.roleLabels.join(", ")
+            : (b[sortField] as string);
       const cmp = av.localeCompare(bv);
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -142,8 +146,8 @@ export default function UserTable({ users, projects, onRoleUpdate }: Props) {
                 <th className={thClass} onClick={() => toggleSort("lastName")}>
                   Last Name {sortArrow("lastName")}
                 </th>
-                <th className={thClass} onClick={() => toggleSort("roleLabel")}>
-                  Role {sortArrow("roleLabel")}
+                <th className={thClass} onClick={() => toggleSort("roleLabels")}>
+                  Role {sortArrow("roleLabels")}
                 </th>
                 <th className={thClass} onClick={() => toggleSort("project")}>
                   Project {sortArrow("project")}
@@ -161,25 +165,31 @@ export default function UserTable({ users, projects, onRoleUpdate }: Props) {
                     <td className="px-4 py-3 text-gray-700">{user.firstName}</td>
                     <td className="px-4 py-3 text-gray-700">{user.lastName}</td>
                     <td className="px-4 py-3">
-                      <select
-                        value={user.role}
-                        disabled={isUpdating}
-                        onChange={(e) => handleRoleChange(user, e.target.value)}
-                        className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-aps-blue disabled:opacity-50"
-                      >
-                        {ROLE_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                        {/* Keep unknown roles selectable if returned by API */}
-                        {!ROLE_OPTIONS.some((o) => o.value === user.role) && (
-                          <option value={user.role}>{user.roleLabel}</option>
+                      <div className="flex flex-col gap-1">
+                        {user.roleLabels.length > 1 && (
+                          <p className="text-xs text-gray-500">{user.roleLabels.join(", ")}</p>
                         )}
-                      </select>
-                      {rowError && (
-                        <p className="mt-1 text-xs text-red-600">{rowError}</p>
-                      )}
+                        <select
+                          value={user.roles[0] ?? ""}
+                          disabled={isUpdating}
+                          onChange={(e) => handleRoleChange(user, e.target.value)}
+                          className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-aps-blue disabled:opacity-50"
+                          title={user.roleLabels.length > 1 ? `All roles: ${user.roleLabels.join(", ")}` : undefined}
+                        >
+                          {ROLE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                          {/* Keep unknown roles selectable if returned by API */}
+                          {user.roles[0] && !ROLE_OPTIONS.some((o) => o.value === user.roles[0]) && (
+                            <option value={user.roles[0]}>{user.roleLabels[0]}</option>
+                          )}
+                        </select>
+                        {rowError && (
+                          <p className="mt-1 text-xs text-red-600">{rowError}</p>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-gray-500">
                       {projectNames[user.projectId] ?? user.projectId}

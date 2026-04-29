@@ -252,8 +252,8 @@ export interface ProjectUser {
   email: string;
   firstName: string;
   lastName: string;
-  role: AccRole;
-  roleLabel: string;
+  roles: AccRole[];
+  roleLabels: string[];
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -263,13 +263,13 @@ export interface ProjectUser {
 
 export interface AddUsersPayload {
   email: string;
-  role: AccRole;
+  roles: AccRole[];
   firstName?: string;
   lastName?: string;
 }
 
 export interface UpdateUserPayload {
-  role: AccRole;
+  roles: AccRole[];
 }
 
 export interface AccountUser {
@@ -453,7 +453,7 @@ export async function addProjectUsers(
   console.log("[APS] addProjectUsers input users=%j", users);
 
   // Resolve unique role names to project-specific UUIDs upfront.
-  const uniqueRoleNames = [...new Set(users.map((u) => u.role).filter(Boolean))];
+  const uniqueRoleNames = [...new Set(users.flatMap((u) => u.roles).filter(Boolean))];
   console.log("[APS] addProjectUsers unique role names to resolve=%j", uniqueRoleNames);
   const roleIdEntries = await Promise.all(
     uniqueRoleNames.map(async (name) => [name, await resolveRoleId(name, projectId, token)] as const),
@@ -467,7 +467,7 @@ export async function addProjectUsers(
       firstName: u.firstName,
       lastName: u.lastName,
       products: [],
-      ...(u.role ? { roleIds: [roleIdMap[u.role] ?? u.role] } : {}),
+      ...(u.roles.length > 0 ? { roleIds: u.roles.map((r) => roleIdMap[r] ?? r) } : {}),
     })),
   };
   console.log("[APS] addProjectUsers importPayload=%j", importPayload);
@@ -487,9 +487,9 @@ export async function updateProjectUser(
   payload: UpdateUserPayload,
   token: string,
 ): Promise<ProjectUser> {
-  const roleId = await resolveRoleId(payload.role, projectId, token);
-  const updatePayload = { roleIds: [roleId] };
-  console.log("[APS] updateProjectUser → AdminClient.updateProjectUser projectId=%s userId=%s role=%s roleId=%s", projectId, userId, payload.role, roleId);
+  const roleIds = await Promise.all(payload.roles.map((r) => resolveRoleId(r, projectId, token)));
+  const updatePayload = { roleIds };
+  console.log("[APS] updateProjectUser → AdminClient.updateProjectUser projectId=%s userId=%s roles=%j roleIds=%j", projectId, userId, payload.roles, roleIds);
   console.log("[APS] updateProjectUser payload=%j", updatePayload);
   const response = await adminClient.updateProjectUser(
     projectId,
@@ -728,9 +728,7 @@ function extractErrorMessage(body: unknown): string | undefined {
 // --------------------------------------------------------------------------
 
 function normalizeUser(raw: SdkProjectUser, projectId: string): ProjectUser {
-  // Prefer the human-readable name from roles[0].name so the UI can display it
-  // correctly. Fall back to the UUID from roleIds[0] if no name is available.
-  const role = (raw.roles?.[0]?.name ?? "").toLowerCase() || (raw.roleIds?.[0] ?? "");
+  const roles = (raw.roles ?? []).map((r) => (r.name ?? "").toLowerCase() as AccRole).filter(Boolean);
   const access = raw.accessLevels ?? {};
   return {
     id: raw.id ?? "",
@@ -738,8 +736,8 @@ function normalizeUser(raw: SdkProjectUser, projectId: string): ProjectUser {
     email: raw.email ?? "",
     firstName: raw.firstName ?? "",
     lastName: raw.lastName ?? "",
-    role,
-    roleLabel: roleLabel(role),
+    roles,
+    roleLabels: roles.map(roleLabel),
     status: raw.status ?? "active",
     createdAt: (raw as unknown as { createdAt?: string }).createdAt ?? "",
     updatedAt: (raw as unknown as { updatedAt?: string }).updatedAt ?? "",
@@ -749,7 +747,7 @@ function normalizeUser(raw: SdkProjectUser, projectId: string): ProjectUser {
 }
 
 function normalizeUserResponse(raw: ProjectUserResponse, projectId: string): ProjectUser {
-  const role = (raw.roles?.[0]?.name ?? "").toLowerCase() || (raw.roleIds?.[0] ?? "");
+  const roles = (raw.roles ?? []).map((r) => (r.name ?? "").toLowerCase() as AccRole).filter(Boolean);
   const access = raw.accessLevels ?? {};
   return {
     id: raw.id ?? "",
@@ -757,8 +755,8 @@ function normalizeUserResponse(raw: ProjectUserResponse, projectId: string): Pro
     email: raw.email ?? "",
     firstName: raw.firstName ?? "",
     lastName: raw.lastName ?? "",
-    role,
-    roleLabel: roleLabel(role),
+    roles,
+    roleLabels: roles.map(roleLabel),
     status: raw.status ?? "active",
     createdAt: raw.addedOn ?? "",
     updatedAt: raw.updatedAt ?? "",

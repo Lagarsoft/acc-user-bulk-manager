@@ -43,7 +43,8 @@ export async function GET(
  *
  * Request body:
  *   { users: AddUsersPayload[] }
- *   where AddUsersPayload = { email: string; role: string; firstName?: string; lastName?: string }
+ *   where AddUsersPayload = { email: string; roles: string[]; firstName?: string; lastName?: string }
+ *   (legacy `role: string` is also accepted and normalised to `roles: [role]`)
  *
  * Response 201:
  *   { users: ProjectUser[] }
@@ -82,15 +83,28 @@ export async function POST(
     );
   }
 
-  const users = body.users as AddUsersPayload[];
+  const raw = body.users as Array<Record<string, unknown>>;
+  const users: AddUsersPayload[] = [];
 
-  for (const u of users) {
+  for (const u of raw) {
     if (!u.email || typeof u.email !== "string") {
       return NextResponse.json({ error: "Each user must have a valid email" }, { status: 400 });
     }
-    if (!u.role || typeof u.role !== "string") {
-      return NextResponse.json({ error: "Each user must have a valid role" }, { status: 400 });
+    // Accept `roles: string[]` or legacy `role: string`
+    let roles: string[];
+    if (Array.isArray(u.roles) && u.roles.length > 0) {
+      roles = u.roles as string[];
+    } else if (typeof u.role === "string" && u.role) {
+      roles = [u.role];
+    } else {
+      return NextResponse.json({ error: "Each user must have at least one role" }, { status: 400 });
     }
+    users.push({
+      email: u.email,
+      roles: roles as AddUsersPayload["roles"],
+      firstName: typeof u.firstName === "string" ? u.firstName : undefined,
+      lastName: typeof u.lastName === "string" ? u.lastName : undefined,
+    });
   }
 
   try {

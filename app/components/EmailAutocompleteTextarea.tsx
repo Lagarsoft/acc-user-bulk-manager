@@ -182,8 +182,8 @@ export default function EmailAutocompleteTextarea({
               >
                 <span className="text-gray-800 truncate">{display}</span>
                 <span className="text-xs text-gray-500 truncate">{user.email}</span>
-                {user.roleLabel && (
-                  <span className="text-xs text-gray-300 truncate">{user.roleLabel}</span>
+                {user.roleLabels.length > 0 && (
+                  <span className="text-xs text-gray-300 truncate">{user.roleLabels.join(", ")}</span>
                 )}
               </button>
             );

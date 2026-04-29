@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
         }
 
         for (const user of users) {
-          if (roleFilter && user.role.toLowerCase() !== roleFilter) continue;
+          if (roleFilter && !user.roles.some((r) => r.toLowerCase() === roleFilter)) continue;
 
           controller.enqueue(
             encoder.encode(
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
                 user.email,
                 user.firstName,
                 user.lastName,
-                user.role,
+                user.roles.join(";"),
                 user.status,
               ]),
             ),

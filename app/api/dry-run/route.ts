@@ -79,7 +79,6 @@ export async function POST(req: NextRequest) {
 
     const projectOps: DryRunOperationResult[] = ops.map((op) => {
       const email = op.email.toLowerCase();
-      const needsRole = op.action === "add" || op.action === "update";
 
       // Skip existence checks when the user fetch failed.
       if (userFetchFailed) {
@@ -88,7 +87,7 @@ export async function POST(req: NextRequest) {
           rowNumber: op.rowNumber,
           action: op.action,
           email: op.email,
-          role: op.role,
+          roles: op.roles,
           firstName: op.firstName,
           lastName: op.lastName,
           valid: true,
@@ -105,7 +104,7 @@ export async function POST(req: NextRequest) {
           rowNumber: op.rowNumber,
           action: op.action,
           email: op.email,
-          role: op.role,
+          roles: op.roles,
           firstName: op.firstName,
           lastName: op.lastName,
           valid: true,
@@ -120,7 +119,7 @@ export async function POST(req: NextRequest) {
           rowNumber: op.rowNumber,
           action: op.action,
           email: op.email,
-          role: op.role,
+          roles: op.roles,
           firstName: op.firstName,
           lastName: op.lastName,
           valid: false,
@@ -135,7 +134,7 @@ export async function POST(req: NextRequest) {
           rowNumber: op.rowNumber,
           action: op.action,
           email: op.email,
-          role: op.role,
+          roles: op.roles,
           firstName: op.firstName,
           lastName: op.lastName,
           valid: true,
@@ -149,7 +148,7 @@ export async function POST(req: NextRequest) {
         rowNumber: op.rowNumber,
         action: op.action,
         email: op.email,
-        role: op.role,
+        roles: op.roles,
         firstName: op.firstName,
         lastName: op.lastName,
         valid: true,
