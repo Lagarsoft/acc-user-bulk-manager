@@ -140,6 +140,20 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // When roles finish loading for a project, auto-populate any row that has
+  // that project selected but no role yet (avoids the controlled-select visual
+  // mismatch where the browser shows the first option but value stays "").
+  useEffect(() => {
+    setRows((prev) =>
+      prev.map((row) => {
+        if (!row.projectId || row.role) return row;
+        const roles = projectRoles[row.projectId];
+        if (!roles || roles.length === 0) return row;
+        return { ...row, role: roles[0].name.toLowerCase() as AccRole };
+      }),
+    );
+  }, [projectRoles]);
+
   // --------------------------------------------------------------------------
   // Row mutations
   // --------------------------------------------------------------------------
@@ -205,7 +219,10 @@ export default function ManualEntryTable({ accountId, onResult, onProjectCached,
   }
 
   function pickProject(rowId: number, project: Project) {
-    updateRow(rowId, { projectId: project.id, projectName: project.name });
+    const cached = projectRoles[project.id];
+    const defaultRole =
+      cached && cached.length > 0 ? (cached[0].name.toLowerCase() as AccRole) : ("" as AccRole);
+    updateRow(rowId, { projectId: project.id, projectName: project.name, role: defaultRole });
     setOpenProjectPicker(null);
     setProjectQuery("");
     setProjectResults([]);
