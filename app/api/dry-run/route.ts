@@ -18,7 +18,6 @@ import type {
  *   - add:    warns if user already exists in the project
  *   - update: errors if user is NOT found in the project
  *   - remove: warns if user is NOT found in the project (no-op)
- *   - any:    errors if the role value is not a recognised Forma role
  *
  * Request body:
  *   { operations: CsvOperationRow[] }
@@ -29,19 +28,6 @@ import type {
  * Response 400 / 500:
  *   { error: string }
  */
-
-const VALID_ROLES = new Set([
-  "admin",
-  "member",
-  "project_admin",
-  "project_manager",
-  "gc_foreman",
-  "gc_manager",
-  "owner",
-  "executive",
-  "editor",
-  "viewer",
-]);
 
 export async function POST(req: NextRequest) {
   let body: { operations?: unknown };
@@ -94,22 +80,6 @@ export async function POST(req: NextRequest) {
     const projectOps: DryRunOperationResult[] = ops.map((op) => {
       const email = op.email.toLowerCase();
       const needsRole = op.action === "add" || op.action === "update";
-
-      // Role validation — checked first as it doesn't require a user lookup.
-      if (needsRole && op.role && !VALID_ROLES.has(op.role.toLowerCase())) {
-        totalErrors++;
-        return {
-          rowNumber: op.rowNumber,
-          action: op.action,
-          email: op.email,
-          role: op.role,
-          firstName: op.firstName,
-          lastName: op.lastName,
-          valid: false,
-          issue: `Invalid role "${op.role}". Valid: ${[...VALID_ROLES].join(", ")}`,
-          severity: "error" as const,
-        };
-      }
 
       // Skip existence checks when the user fetch failed.
       if (userFetchFailed) {

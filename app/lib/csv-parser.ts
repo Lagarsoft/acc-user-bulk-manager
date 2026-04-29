@@ -47,19 +47,6 @@ export interface CsvParseResult {
 // Internal constants
 // --------------------------------------------------------------------------
 
-const VALID_ROLES = new Set<string>([
-  "admin",
-  "member",
-  "project_admin",
-  "project_manager",
-  "gc_foreman",
-  "gc_manager",
-  "owner",
-  "executive",
-  "editor",
-  "viewer",
-]);
-
 const VALID_ACTIONS = new Set<string>(["add", "update", "remove"]);
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -199,12 +186,6 @@ export function parseCsv(csvText: string): CsvParseResult {
     if (action !== "remove") {
       if (!role) {
         rowErrors.push({ rowNumber, field: "role", message: "role is required for add/update" });
-      } else if (!VALID_ROLES.has(role)) {
-        rowErrors.push({
-          rowNumber,
-          field: "role",
-          message: `"${fields[col.role!]}" is not a valid role. Accepted: ${[...VALID_ROLES].join(", ")}`,
-        });
       }
     }
 
