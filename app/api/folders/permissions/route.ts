@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     const hasUserGrants = grants.some(
       (g) => !g.subjectType || g.subjectType.toUpperCase() === "USER",
     );
-    const membersByEmail = new Map<string, { id: string; isProjectAdmin: boolean; isAccountAdmin: boolean }>();
+    const membersByEmail = new Map<string, { id: string; status: string; isProjectAdmin: boolean; isAccountAdmin: boolean }>();
     if (hasUserGrants) {
       const projectMembers = await listProjectUsers(projectId, userToken);
       for (const m of projectMembers) {
@@ -115,6 +115,14 @@ export async function POST(req: NextRequest) {
           kind: "error",
           subject: email,
           message: "User is not a member of this project — add them to the project first",
+        };
+      }
+
+      if (member.status !== "active") {
+        return {
+          kind: "error",
+          subject: email,
+          message: `User invitation is ${member.status} — they must accept the project invite before folder permissions can be granted`,
         };
       }
 

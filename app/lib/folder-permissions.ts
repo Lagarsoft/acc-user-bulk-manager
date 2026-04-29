@@ -274,6 +274,9 @@ function explainAutodeskError(err: AutodeskErrorDetail, subject: FolderPermissio
       "batch-create."
     );
   }
+  if (/not exist or not active/i.test(detail)) {
+    return "One or more subjects are not active project members — ensure all users have accepted their project invite before granting folder permissions.";
+  }
   return err.detail ? `${err.title ?? "Autodesk error"}: ${err.detail}` : detail;
   void subject; // reserved for future subject-specific messaging
 }

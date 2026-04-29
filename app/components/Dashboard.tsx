@@ -97,6 +97,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
     setProjectCache({});
   }, [selectedHubId]);
 
+  const [userImportKey, setUserImportKey] = useState(0);
   const [userImportState, setUserImportState] = useState<UserImportStepState>({
     hasRows: false,
     running: false,
@@ -129,9 +130,17 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
 
   const selectWorkflow = useCallback((id: WorkflowId) => {
     setWorkflow(id);
-    if (id === "users") setUsersStep(0);
-    else if (id === "permissions") setPermsStep(0);
-    else if (id === "folders") setFoldersStep(0);
+    if (id === "users") {
+      setUsersStep(0);
+      setImportResults(null);
+      setUserImportKey((k) => k + 1);
+    } else if (id === "permissions") {
+      setPermsStep(0);
+      setQueueOps(null);
+    } else if (id === "folders") {
+      setFoldersStep(0);
+      setFolderEntries([]);
+    }
     trackEvent("workflow_selected", { workflow: id });
   }, []);
 
@@ -171,6 +180,7 @@ export default function Dashboard({ initialHubs, initialError }: Props) {
               }}
             >
               <UserImportStep
+                key={userImportKey}
                 hubs={relevantHubs}
                 selectedHubId={selectedHubId}
                 onSelectHub={(id) => setSelectedHubId(id)}
