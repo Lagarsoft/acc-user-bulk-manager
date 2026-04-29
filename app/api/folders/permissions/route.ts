@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     const hasUserGrants = grants.some(
       (g) => !g.subjectType || g.subjectType.toUpperCase() === "USER",
     );
-    const membersByEmail = new Map<string, { id: string; status: string; isProjectAdmin: boolean; isAccountAdmin: boolean }>();
+    const membersByEmail = new Map<string, { id: string; autodeskId: string; status: string; isProjectAdmin: boolean; isAccountAdmin: boolean }>();
     if (hasUserGrants) {
       const projectMembers = await listProjectUsers(projectId, userToken);
       for (const m of projectMembers) {
@@ -137,7 +137,10 @@ export async function POST(req: NextRequest) {
         };
       }
 
-      return { kind: "ok", subject: email, permission: permission as PermissionLevel, subjectId: member.id, subjectType: "USER" };
+      // BIM360 Docs folder permissions API requires the Autodesk platform ID (autodeskId),
+      // not the ACC project member ID (id).
+      const subjectId = member.autodeskId || member.id;
+      return { kind: "ok", subject: email, permission: permission as PermissionLevel, subjectId, subjectType: "USER" };
     });
 
     // Group by permission level for efficient batch-create calls.

@@ -248,6 +248,7 @@ export function roleLabel(role: string): string {
 
 export interface ProjectUser {
   id: string;
+  autodeskId: string;
   projectId: string;
   email: string;
   firstName: string;
@@ -732,6 +733,7 @@ function normalizeUser(raw: SdkProjectUser, projectId: string): ProjectUser {
   const access = raw.accessLevels ?? {};
   return {
     id: raw.id ?? "",
+    autodeskId: raw.autodeskId ?? "",
     projectId,
     email: raw.email ?? "",
     firstName: raw.firstName ?? "",
@@ -751,6 +753,7 @@ function normalizeUserResponse(raw: ProjectUserResponse, projectId: string): Pro
   const access = raw.accessLevels ?? {};
   return {
     id: raw.id ?? "",
+    autodeskId: raw.autodeskId ?? "",
     projectId,
     email: raw.email ?? "",
     firstName: raw.firstName ?? "",
