@@ -313,14 +313,7 @@ export interface AccountUserImportResult {
  * Uses the Data Management API with a 3-legged token (data:read scope).
  */
 export async function listHubs(token: string): Promise<Hub[]> {
-  console.log("[APS] listHubs → DataManagement.getHubs");
-  console.log(
-    "[APS] listHubs curl:\n  curl -s -X GET 'https://developer.api.autodesk.com/project/v1/hubs' \\\n    -H 'Authorization: Bearer %s'",
-    token,
-  );
   const response = await dmClient.getHubs({ accessToken: token });
-  console.log("[APS] listHubs raw response: %s", JSON.stringify(response, null, 2));
-  console.log("[APS] listHubs ✓ got", response.data?.length ?? 0, "hubs");
 
   return (response.data ?? []).map((hub) => {
     const rawId = hub.id ?? "";
@@ -439,6 +432,88 @@ export async function listProjectUsers(projectId: string, token: string): Promis
   return allUsers;
 }
 
+export interface Bim360ProjectMember {
+  uid: string;
+  email: string;
+  status: string;
+  isProjectAdmin: boolean;
+  isAccountAdmin: boolean;
+}
+
+/**
+ * Fetches project members from the BIM360 HQ v1 API.
+ * The `uid` returned here is what the BIM360 Docs folder permissions API
+ * (`/bim360/docs/v1/.../permissions:batch-create`) expects as `subjectId`.
+ * The ACC Admin v2 `id` is a different UUID space that the Docs API does not recognise.
+ *
+ * Endpoint: GET /construction/admin/v1/projects/{projectId}/users
+ */
+export async function listBim360ProjectMembers(
+  accountId: string,
+  projectId: string,
+  token: string,
+): Promise<Map<string, Bim360ProjectMember>> {
+  void accountId; // not used in the construction/admin/v1 endpoint path
+  const PAGE = 100;
+  const byEmail = new Map<string, Bim360ProjectMember>();
+  let offset = 0;
+
+  while (true) {
+    const url =
+      `https://developer.api.autodesk.com/construction/admin/v1/projects/${encodeURIComponent(projectId)}` +
+      `/users?limit=${PAGE}&offset=${offset}`;
+    console.log("[APS] listBim360ProjectMembers GET %s", url);
+
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const raw = await res.text();
+
+    if (!res.ok) {
+      console.error("[APS] listBim360ProjectMembers failed status=%d body=%s", res.status, raw.slice(0, 400));
+      break;
+    }
+
+    // construction/admin/v1 returns { pagination: {...}, results: [...] }
+    let users: Array<Record<string, unknown>> = [];
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      users = Array.isArray(parsed)
+        ? (parsed as Array<Record<string, unknown>>)
+        : ((parsed as Record<string, unknown>).results ?? []) as Array<Record<string, unknown>>;
+    } catch {
+      console.error("[APS] listBim360ProjectMembers JSON parse error body=%s", raw.slice(0, 200));
+      break;
+    }
+
+    console.log(
+      "[APS] listBim360ProjectMembers page offset=%d got=%d sample=%s",
+      offset, users.length,
+      users.length > 0 ? JSON.stringify(users[0]).slice(0, 300) : "none",
+    );
+
+    for (const u of users) {
+      const email = ((u.email as string) ?? "").trim().toLowerCase();
+      const uid = (u.id ?? "") as string;
+      if (!email || !uid) continue;
+
+      const accessLevel = ((u.accessLevel as string) ?? "").toLowerCase();
+      const status = ((u.status as string) ?? "active").toLowerCase();
+      byEmail.set(email, {
+        uid,
+        email,
+        status,
+        isProjectAdmin: accessLevel === "projectadmin",
+        isAccountAdmin: accessLevel === "accountadmin",
+      });
+    }
+
+    if (users.length < PAGE) break;
+    offset += PAGE;
+  }
+
+  console.log("[APS] listBim360ProjectMembers ✓ total=%d", byEmail.size);
+  return byEmail;
+}
+
 /**
  * Adds one or more users to a project using the bulk import endpoint.
  * The Forma import API is asynchronous — it returns a jobId, not user records.
@@ -530,10 +605,6 @@ export async function searchAccountUsers(
   token: string,
 ): Promise<AccountUser[]> {
   console.log("[APS] searchAccountUsers → AdminClient.searchUsers accountId=%s query=%s", accountId, query);
-  console.log(
-    "[APS] searchAccountUsers curl:\n  curl -s -X GET 'https://developer.api.autodesk.com/construction/admin/v1/accounts/%s/users/search?name=%s&email=%s&operator=OR&partial=true&limit=20' \\\n    -H 'Authorization: Bearer %s'",
-    accountId, encodeURIComponent(query), encodeURIComponent(query), token,
-  );
   let results;
   try {
     results = await adminClient.searchUsers(accountId, {
@@ -642,7 +713,6 @@ export async function createAccountUsers(
     "[APS] createAccountUsers → POST %s count=%d region=%s",
     baseUrl, users.length, region,
   );
-
   const response = await fetch(baseUrl, {
     method: "POST",
     headers: {

@@ -184,11 +184,6 @@ export async function batchGrantFolderPermissions(
     actions: s.actions,
   }));
 
-  console.log(
-    "[folders] batchGrantFolderPermissions projectId=%s folder=%s count=%d",
-    rawProjectId, folderUrn, subjects.length,
-  );
-
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -199,15 +194,15 @@ export async function batchGrantFolderPermissions(
   });
 
   const raw = await response.text();
+  console.log(
+    "[folders] batchGrantFolderPermissions response status=%d body=%s",
+    response.status, raw,
+  );
+
   if (response.ok) {
     // Endpoint returns an array mirroring the input on success.
     return subjects.map((s) => ({ subjectId: s.subjectId, status: "granted" as const }));
   }
-
-  console.error(
-    "[folders] batchGrantFolderPermissions ✗ status=%d body=%s",
-    response.status, raw,
-  );
 
   const parsed = parseAutodeskError(raw, response.status);
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COOKIE_ACCESS_TOKEN } from "@/app/lib/aps-auth";
-import { listProjectUsers } from "@/app/lib/acc-admin";
+import { listBim360ProjectMembers } from "@/app/lib/acc-admin";
 import {
   batchGrantFolderPermissions,
   isPermissionLevel,
@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
   }
 
   let body: {
+    accountId?: string;
     projectId?: string;
     folderUrn?: string;
     grants?: Array<{
@@ -58,26 +59,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { projectId, folderUrn, grants } = body;
-  if (!projectId || !folderUrn || !Array.isArray(grants) || grants.length === 0) {
+  const { accountId, projectId, folderUrn, grants } = body;
+  if (!accountId || !projectId || !folderUrn || !Array.isArray(grants) || grants.length === 0) {
     return NextResponse.json(
-      { error: "projectId, folderUrn, and a non-empty grants[] are required" },
+      { error: "accountId, projectId, folderUrn, and a non-empty grants[] are required" },
       { status: 400 },
     );
   }
 
   try {
     // Only load project members once, and only if there are USER grants.
+    // Uses the BIM360 HQ v2 API which returns the UID that the BIM360 Docs
+    // folder permissions API recognises — different UUID space from ACC Admin v2.
     const hasUserGrants = grants.some(
       (g) => !g.subjectType || g.subjectType.toUpperCase() === "USER",
     );
-    const membersByEmail = new Map<string, { id: string; autodeskId: string; status: string; isProjectAdmin: boolean; isAccountAdmin: boolean }>();
-    if (hasUserGrants) {
-      const projectMembers = await listProjectUsers(projectId, userToken);
-      for (const m of projectMembers) {
-        if (m.email) membersByEmail.set(m.email.trim().toLowerCase(), m);
-      }
-    }
+    const membersByEmail = hasUserGrants
+      ? await listBim360ProjectMembers(accountId, projectId, userToken)
+      : new Map();
 
     type Resolved =
       | { kind: "error"; subject: string; message: string }
@@ -137,10 +136,7 @@ export async function POST(req: NextRequest) {
         };
       }
 
-      // BIM360 Docs folder permissions API requires the Autodesk platform ID (autodeskId),
-      // not the ACC project member ID (id).
-      const subjectId = member.autodeskId || member.id;
-      return { kind: "ok", subject: email, permission: permission as PermissionLevel, subjectId, subjectType: "USER" };
+      return { kind: "ok", subject: email, permission: permission as PermissionLevel, subjectId: member.uid, subjectType: "USER" };
     });
 
     // Group by permission level for efficient batch-create calls.
@@ -180,6 +176,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    console.log("[folders] POST /api/folders/permissions response=%s", JSON.stringify({ results }));
     return NextResponse.json({ results });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
